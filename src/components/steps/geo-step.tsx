@@ -27,6 +27,7 @@ export function GeoStep() {
   const { geo, intake } = state;
   const perfState = state as any;
   const performanceDMAs: string[] = perfState.performanceDMAs || [];
+  const performanceZIPs: string[] = perfState.performanceZIPs || [];
   const hasPerformanceData = perfState.performanceUploaded;
   const performanceAdvertiserName: string | undefined = perfState.performanceAdvertiserName || undefined;
   const budget = intake.monthlyBudget || 0;
@@ -37,16 +38,19 @@ export function GeoStep() {
   const locations = parseLocations(geo.geoValue);
   const isLowBudget = (geo.geoType === "DMA" && budget < 10000) || (geo.geoType === "Congressional District" && budget < 2500);
 
-  // Auto-populate geo from historical DMAs if geo is empty
+  // Auto-populate geo from historical DMA or ZIP data if geo is empty
   useEffect(() => {
-    if (hasPerformanceData && performanceDMAs.length > 0 && !geo.geoType && !geo.geoValue) {
-      updateGeo({
-        geoType: "DMA",
-        geoValue: performanceDMAs.join("; "),
-        strategies: [],
-      });
+    if (!hasPerformanceData || geo.geoType || geo.geoValue) return;
+
+    if (performanceDMAs.length > 0) {
+      updateGeo({ geoType: "DMA", geoValue: performanceDMAs.join("; "), strategies: [] });
+      return;
     }
-  }, [hasPerformanceData, performanceDMAs, geo.geoType, geo.geoValue, updateGeo]);
+
+    if (performanceZIPs.length > 0) {
+      updateGeo({ geoType: "ZIP List", geoValue: performanceZIPs.join("; "), strategies: [] });
+    }
+  }, [hasPerformanceData, performanceDMAs, performanceZIPs, geo.geoType, geo.geoValue, updateGeo]);
 
   const addLocation = () => { if (!newLoc.trim()) return; updateGeo({ geoValue: joinLocations([...locations, newLoc.trim()]) }); setNewLoc(""); };
   const removeLocation = (i: number) => { updateGeo({ geoValue: joinLocations(locations.filter((_, idx) => idx !== i)) }); };
@@ -103,11 +107,11 @@ export function GeoStep() {
         <p className="text-sm text-muted-foreground mt-1">Where should we show ads? Pick a targeting method and add locations. Supports bulk entry for 200+ locations.</p>
       </div>
 
-      {hasPerformanceData && performanceDMAs.length > 0 && geo.geoType === "DMA" && (
+      {hasPerformanceData && (performanceDMAs.length > 0 || performanceZIPs.length > 0) && (geo.geoType === "DMA" || geo.geoType === "ZIP List") && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
           <Database className="w-4 h-4 text-emerald-600 flex-shrink-0" />
           <p className="text-xs text-emerald-700 dark:text-emerald-300">
-            <strong>{performanceDMAs.length} DMAs</strong> auto-populated from {performanceAdvertiserName || "historical"} campaign data. All values are editable.
+            <strong>{geo.geoType === "DMA" ? performanceDMAs.length : performanceZIPs.length} {geo.geoType === "DMA" ? "DMAs" : "ZIPs"}</strong> auto-populated from {performanceAdvertiserName || "historical"} campaign data. All values are editable.
           </p>
         </div>
       )}

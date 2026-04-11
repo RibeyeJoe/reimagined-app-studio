@@ -29,6 +29,12 @@ const defaultState: PlannerState = {
   recommendations: null,
   quickStart: defaultQuickStart,
   historicalData: [],
+  performanceUploaded: false,
+  performanceAdvertisers: [],
+  performanceAdvertiserCode: null,
+  performanceAdvertiserName: null,
+  performanceDMAs: [],
+  performanceZIPs: [],
 };
 
 interface PlannerContextType {
