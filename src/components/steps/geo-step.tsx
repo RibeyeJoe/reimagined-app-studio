@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { GEO_TYPES, type GeoType } from "@/lib/schema";
-import { MapPin, Sparkles, ArrowLeft, ArrowRight, AlertTriangle, Building, Radio, Map, Hash, Landmark, Plus, X, Upload, FileText } from "lucide-react";
+import { MapPin, Sparkles, ArrowLeft, ArrowRight, AlertTriangle, Building, Radio, Map, Hash, Landmark, Plus, X, Upload, FileText, Database } from "lucide-react";
 
 const GEO_ICONS: Record<GeoType, typeof Building> = {
   City: Building, DMA: Radio, "ZIP List": Hash, Radius: Map, "Congressional District": Landmark,
