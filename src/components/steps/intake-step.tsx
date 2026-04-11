@@ -1,16 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks } from "date-fns";
 import {
   Globe, Sparkles, X, Building2, MapPin, DollarSign,
-  ArrowRight, Loader2,
+  ArrowRight, Loader2, CalendarIcon, Clock,
 } from "lucide-react";
-import type { CTAType, DetectedLocation } from "@/lib/schema";
-import { cn } from "@/lib/utils";
+import type { CTAType } from "@/lib/schema";
+import { FLIGHTING_PRESETS } from "@/lib/schema";
 
 export function IntakeStep() {
   const { state, updateIntake, setStep } = usePlanner();
@@ -20,7 +24,6 @@ export function IntakeStep() {
   const handleAnalyze = async () => {
     if (!intake.websiteUrl) return;
     setAnalyzing(true);
-    // Simulate analysis
     await new Promise(r => setTimeout(r, 1500));
     updateIntake({
       detected: {
@@ -41,6 +44,38 @@ export function IntakeStep() {
       detected: { ...intake.detected, services: intake.detected.services.filter(s => s !== service) },
     });
   };
+
+  const applyFlightPreset = (preset: string) => {
+    const now = new Date();
+    let start: Date, end: Date;
+    switch (preset) {
+      case "Next Week":
+        start = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+        end = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+        break;
+      case "Next 2 Weeks":
+        start = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+        end = endOfWeek(addWeeks(now, 2), { weekStartsOn: 1 });
+        break;
+      case "Next Month":
+        start = startOfMonth(addMonths(now, 1));
+        end = endOfMonth(addMonths(now, 1));
+        break;
+      case "Next Quarter":
+        start = startOfMonth(addMonths(now, 1));
+        end = endOfMonth(addMonths(now, 3));
+        break;
+      default:
+        return;
+    }
+    updateIntake({
+      flightStart: format(start, "yyyy-MM-dd"),
+      flightEnd: format(end, "yyyy-MM-dd"),
+    });
+  };
+
+  const flightStart = intake.flightStart ? new Date(intake.flightStart) : undefined;
+  const flightEnd = intake.flightEnd ? new Date(intake.flightEnd) : undefined;
 
   const canContinue = intake.businessName && intake.monthlyBudget > 0;
 
@@ -118,6 +153,73 @@ export function IntakeStep() {
             </div>
           </div>
         </div>
+      </Card>
+
+      {/* Flighting Section */}
+      <Card className="p-6 space-y-4 card-elevated">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-display font-semibold">Flight Dates</h3>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {FLIGHTING_PRESETS.filter(p => p !== "Custom").map(preset => (
+            <Button key={preset} size="sm" variant="outline" onClick={() => applyFlightPreset(preset)}>
+              {preset}
+            </Button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Start Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !flightStart && "text-muted-foreground")}>
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  {flightStart ? format(flightStart, "PPP") : "Pick a start date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={flightStart}
+                  onSelect={(d) => d && updateIntake({ flightStart: format(d, "yyyy-MM-dd") })}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">End Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !flightEnd && "text-muted-foreground")}>
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  {flightEnd ? format(flightEnd, "PPP") : "Pick an end date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={flightEnd}
+                  onSelect={(d) => d && updateIntake({ flightEnd: format(d, "yyyy-MM-dd") })}
+                  disabled={(d) => flightStart ? d < flightStart : false}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        {flightStart && flightEnd && (
+          <p className="text-xs text-muted-foreground">
+            Flight: {format(new Date(intake.flightStart), "MMM d")} – {format(new Date(intake.flightEnd), "MMM d, yyyy")}
+            {" "}({Math.ceil((new Date(intake.flightEnd).getTime() - new Date(intake.flightStart).getTime()) / (1000 * 60 * 60 * 24))} days)
+          </p>
+        )}
       </Card>
 
       {intake.detected && (

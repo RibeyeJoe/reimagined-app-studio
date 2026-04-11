@@ -1,24 +1,30 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { CHANNELS, CHANNEL_GROUPS, type Channel, type ChannelAllocation, type ChannelGroup } from "@/lib/schema";
+import {
+  CHANNELS, CHANNEL_GROUPS, OOH_VERTICALS, OOH_TYPES, DAYPARTS,
+  type Channel, type ChannelAllocation, type ChannelGroup,
+  type OOHVertical, type OOHType, type Daypart,
+} from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX, CHANNEL_META, CHANNEL_PRESETS, getChannelHint } from "@/lib/benchmarks";
 import {
-  Sparkles, ArrowLeft, ArrowRight, Lock, Unlock,
+  Sparkles, ArrowLeft, ArrowRight, Lock, Unlock, ChevronDown, ChevronUp,
   Search, Share2, Monitor, PlayCircle, Tv, RadioTower,
-  Radio, Headphones, MapPin, Mail, ShoppingCart, Youtube, Film,
+  Radio, Headphones, MapPin, Mail, ShoppingCart, Youtube, Film, Signpost,
 } from "lucide-react";
 
 const CHANNEL_ICONS: Record<Channel, typeof Search> = {
   Search, Social: Share2, Display: Monitor, OLV: PlayCircle, CTV: Tv,
   "YouTube/YouTubeTV": Youtube, "Amazon/Prime Video/Twitch": ShoppingCart,
-  Linear: RadioTower, Radio, Audio: Headphones, DOOH: MapPin, Email: Mail, Netflix: Film,
+  Linear: RadioTower, Radio, Audio: Headphones, DOOH: MapPin, OOH: Signpost,
+  Email: Mail, Netflix: Film,
 };
 
 const GROUP_LABELS: Record<ChannelGroup, { title: string; description: string }> = {
@@ -27,11 +33,15 @@ const GROUP_LABELS: Record<ChannelGroup, { title: string; description: string }>
   "Support": { title: "Support", description: "Support and retarget" },
 };
 
+const CHANNELS_WITH_DAYPARTS: Channel[] = ["Linear", "Radio"];
+const CHANNELS_WITH_OOH: Channel[] = ["DOOH", "OOH"];
+
 export function ChannelsStep() {
   const { state, updateChannels, setStep } = usePlanner();
   const { channels, intake, goals } = state;
   const budget = intake.monthlyBudget || 5000;
   const hasServices = (intake.detected?.services?.length || 0) > 0;
+  const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
 
   useEffect(() => {
     if (channels.allocations.length === 0 && goals.goal) suggestChannels();
@@ -77,6 +87,36 @@ export function ChannelsStep() {
     updateChannels({ allocations: updated, activePreset: null });
   };
 
+  const toggleOOHVertical = (channel: Channel, vertical: OOHVertical) => {
+    const updated = channels.allocations.map(a => {
+      if (a.channel !== channel) return a;
+      const current = a.oohVerticals || [];
+      const next = current.includes(vertical) ? current.filter(v => v !== vertical) : [...current, vertical];
+      return { ...a, oohVerticals: next };
+    });
+    updateChannels({ allocations: updated });
+  };
+
+  const toggleOOHType = (channel: Channel, type: OOHType) => {
+    const updated = channels.allocations.map(a => {
+      if (a.channel !== channel) return a;
+      const current = a.oohTypes || [];
+      const next = current.includes(type) ? current.filter(t => t !== type) : [...current, type];
+      return { ...a, oohTypes: next };
+    });
+    updateChannels({ allocations: updated });
+  };
+
+  const toggleDaypart = (channel: Channel, daypart: Daypart) => {
+    const updated = channels.allocations.map(a => {
+      if (a.channel !== channel) return a;
+      const current = a.dayparts || [];
+      const next = current.includes(daypart) ? current.filter(d => d !== daypart) : [...current, daypart];
+      return { ...a, dayparts: next };
+    });
+    updateChannels({ allocations: updated });
+  };
+
   const enabledCount = channels.allocations.filter(a => a.enabled).length;
   const totalPct = channels.allocations.filter(a => a.enabled).reduce((s, a) => s + a.percentage, 0);
   const channelsByGroup = (group: ChannelGroup) => {
@@ -84,11 +124,13 @@ export function ChannelsStep() {
     return channels.allocations.filter(a => groupChannels.includes(a.channel as Channel));
   };
 
+  const hasExtraConfig = (ch: string) => CHANNELS_WITH_DAYPARTS.includes(ch as Channel) || CHANNELS_WITH_OOH.includes(ch as Channel);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-2xl font-display font-bold text-foreground">Channel Mix</h2>
-        <p className="text-sm text-muted-foreground mt-1">Select channels and adjust budget allocation.</p>
+        <p className="text-sm text-muted-foreground mt-1">Select channels and adjust budget allocation. Configure dayparts for Linear/Radio and verticals for OOH/DOOH.</p>
       </div>
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -136,6 +178,8 @@ export function ChannelsStep() {
               {groupAllocs.map(alloc => {
                 const Icon = CHANNEL_ICONS[alloc.channel as Channel] || Monitor;
                 const hint = getChannelHint(alloc.channel as Channel, budget, hasServices);
+                const isExpanded = expandedChannel === alloc.channel;
+                const showExtra = alloc.enabled && hasExtraConfig(alloc.channel);
                 return (
                   <Card key={alloc.channel} className={cn("p-4 transition-all card-elevated", !alloc.enabled && "opacity-50")}>
                     <div className="flex items-center justify-between gap-2 mb-3">
@@ -165,6 +209,68 @@ export function ChannelsStep() {
                           min={0} max={100} step={1}
                           disabled={channels.locked}
                         />
+                      </div>
+                    )}
+
+                    {showExtra && (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => setExpandedChannel(isExpanded ? null : alloc.channel)}
+                          className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                        >
+                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {CHANNELS_WITH_OOH.includes(alloc.channel as Channel) ? "Verticals & Types" : "Dayparts"}
+                        </button>
+
+                        {isExpanded && CHANNELS_WITH_OOH.includes(alloc.channel as Channel) && (
+                          <div className="mt-2 space-y-2 animate-fade-in">
+                            <div>
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Verticals</p>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {OOH_VERTICALS.map(v => (
+                                  <label key={v} className="flex items-center gap-1 text-xs cursor-pointer">
+                                    <Checkbox
+                                      checked={(alloc.oohVerticals || []).includes(v)}
+                                      onCheckedChange={() => toggleOOHVertical(alloc.channel as Channel, v)}
+                                    />
+                                    {v}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Placement Types</p>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {OOH_TYPES.map(t => (
+                                  <label key={t} className="flex items-center gap-1 text-xs cursor-pointer">
+                                    <Checkbox
+                                      checked={(alloc.oohTypes || []).includes(t)}
+                                      onCheckedChange={() => toggleOOHType(alloc.channel as Channel, t)}
+                                    />
+                                    {t}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {isExpanded && CHANNELS_WITH_DAYPARTS.includes(alloc.channel as Channel) && (
+                          <div className="mt-2 animate-fade-in">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Dayparts</p>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {DAYPARTS.map(d => (
+                                <label key={d} className="flex items-center gap-1 text-xs cursor-pointer">
+                                  <Checkbox
+                                    checked={(alloc.dayparts || []).includes(d)}
+                                    onCheckedChange={() => toggleDaypart(alloc.channel as Channel, d)}
+                                  />
+                                  {d}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </Card>

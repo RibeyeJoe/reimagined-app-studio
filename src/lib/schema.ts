@@ -1,4 +1,4 @@
-// Ribeye Omni Planner – shared types (ported from Replit project)
+// Ribeye Omni Planner – shared types
 
 export const STEPS = ["intake", "goals", "geo", "audiences", "channels", "review"] as const;
 export type StepId = typeof STEPS[number];
@@ -11,7 +11,7 @@ export type CTAType = typeof CTA_TYPES[number];
 
 export const CHANNELS = [
   "Search", "Social", "Display", "OLV", "CTV", "YouTube/YouTubeTV",
-  "Amazon/Prime Video/Twitch", "Linear", "Radio", "Audio", "DOOH",
+  "Amazon/Prime Video/Twitch", "Linear", "Radio", "Audio", "DOOH", "OOH",
   "Email", "Netflix"
 ] as const;
 export type Channel = typeof CHANNELS[number];
@@ -33,6 +33,30 @@ export type AudienceTier = typeof AUDIENCE_TIERS[number];
 
 export const IO_STATUSES = ["draft", "sent", "signed", "live"] as const;
 export type IOStatus = typeof IO_STATUSES[number];
+
+// OOH / DOOH verticals and types
+export const OOH_VERTICALS = ["Transit", "Retail", "Outdoor", "Airport", "Sports & Entertainment", "Healthcare", "Office"] as const;
+export type OOHVertical = typeof OOH_VERTICALS[number];
+
+export const OOH_TYPES = [
+  "Billboard", "Bus Shelter", "Gas Station", "Restaurant", "Grocery Store",
+  "Mall", "Subway", "Bus Wrap", "Digital Kiosk", "Taxi Top", "Airport Screen",
+  "Arena/Stadium", "Elevator", "Gym", "Laundromat", "Pharmacy",
+] as const;
+export type OOHType = typeof OOH_TYPES[number];
+
+// Dayparts for Linear / Radio
+export const DAYPARTS = [
+  "Morning Drive (6a-10a)", "Midday (10a-3p)", "Afternoon Drive (3p-7p)",
+  "Prime (7p-11p)", "Late Night (11p-2a)", "Overnight (2a-6a)", "Weekend",
+] as const;
+export type Daypart = typeof DAYPARTS[number];
+
+// Flighting presets
+export const FLIGHTING_PRESETS = [
+  "Next Week", "Next 2 Weeks", "Next Month", "Next Quarter", "Custom",
+] as const;
+export type FlightingPreset = typeof FLIGHTING_PRESETS[number];
 
 export interface ChannelMetadata {
   channel: Channel;
@@ -67,6 +91,8 @@ export interface IntakeState {
   monthlyBudget: number;
   detected: DetectedInfo | null;
   analyzed: boolean;
+  flightStart: string;
+  flightEnd: string;
 }
 
 export interface GoalsState {
@@ -100,6 +126,9 @@ export interface ChannelAllocation {
   enabled: boolean;
   percentage: number;
   budget: number;
+  oohVerticals?: OOHVertical[];
+  oohTypes?: OOHType[];
+  dayparts?: Daypart[];
 }
 
 export interface ChannelsState {
@@ -121,6 +150,26 @@ export interface Requirement {
   met: boolean;
 }
 
+export interface ShareOfVoice {
+  channel: Channel;
+  estimatedSOV: number;
+  marketAverage: number;
+  competitive: "Leading" | "Competitive" | "Below Average";
+}
+
+export interface HistoricalPerformance {
+  channel: Channel;
+  period: string;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  spend: number;
+  cpm: number;
+  cpc: number;
+  ctr: number;
+  convRate: number;
+}
+
 export interface PlanOption {
   name: "Conservative" | "Balanced" | "Aggressive";
   summary: string;
@@ -135,6 +184,7 @@ export interface PlanOption {
   rationale: string[];
   requirements: Requirement[];
   totalBudget: number;
+  shareOfVoice?: ShareOfVoice[];
 }
 
 export interface RecommendationSection {
@@ -184,6 +234,7 @@ export interface PlannerState {
   savedPlans: SavedPlan[];
   recommendations: RecommendationSection | null;
   quickStart: QuickStartState;
+  historicalData: HistoricalPerformance[];
 }
 
 export interface SavedPlan {
