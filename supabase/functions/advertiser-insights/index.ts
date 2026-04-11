@@ -90,6 +90,24 @@ serve(async (req) => {
       dmaCount: s.dmas.size,
     }));
 
+    // Daypart aggregation
+    const daypartStats: Record<string, { impressions: number; vcr: number[]; count: number }> = {};
+    for (const row of data) {
+      const dp = row.daypart?.trim();
+      if (dp) {
+        if (!daypartStats[dp]) daypartStats[dp] = { impressions: 0, vcr: [], count: 0 };
+        daypartStats[dp].impressions += Number(row.impressions) || 0;
+        if (row.vcr) daypartStats[dp].vcr.push(Number(row.vcr));
+        daypartStats[dp].count++;
+      }
+    }
+    const daypartSummary = Object.entries(daypartStats).map(([daypart, s]) => ({
+      daypart,
+      impressions: s.impressions,
+      avgVCR: Math.round(avg(s.vcr) * 100) / 100,
+      rows: s.count,
+    }));
+
     // DMA-level breakdown (top by impressions)
     const dmaStats: Record<string, { impressions: number; reach: number; count: number }> = {};
     const zipStats: Record<string, { impressions: number; reach: number; count: number }> = {};
