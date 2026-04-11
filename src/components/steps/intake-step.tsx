@@ -39,13 +39,13 @@ export function IntakeStep() {
     setLookup({ status: "searching" });
 
     try {
-      const searchTerm = `%${name}%`;
+      const searchTerm = name.trim();
 
       // Count matching campaigns
       const { count, error: countError } = await supabase
         .from("campaign_performance")
         .select("*", { count: "exact", head: true })
-        .or(`advertiser_name.ilike.${searchTerm},advertiser_code.ilike.${searchTerm}`);
+        .or(`advertiser_name.ilike.%${searchTerm}%,advertiser_code.ilike.%${searchTerm}%`);
 
       if (countError) throw countError;
 
@@ -59,16 +59,17 @@ export function IntakeStep() {
         return;
       }
 
-      // Get last activity date and channels
+      // Get last activity date, channels, and DMAs
       const { data: summary } = await supabase
         .from("campaign_performance")
-        .select("campaign_day, digital_channel")
-        .or(`advertiser_name.ilike.${searchTerm},advertiser_code.ilike.${searchTerm}`)
+        .select("campaign_day, digital_channel, dma")
+        .or(`advertiser_name.ilike.%${searchTerm}%,advertiser_code.ilike.%${searchTerm}%`)
         .order("campaign_day", { ascending: false })
-        .limit(500);
+        .limit(1000);
 
       const lastDate = summary?.[0]?.campaign_day;
       const channels = [...new Set(summary?.map((r) => r.digital_channel).filter(Boolean) || [])];
+      const dmas = [...new Set(summary?.map((r) => r.dma).filter(Boolean) || [])];
 
       setLookup({
         status: "found",
@@ -81,6 +82,7 @@ export function IntakeStep() {
         ...prev,
         performanceUploaded: true,
         performanceAdvertisers: [name],
+        performanceDMAs: dmas,
       }));
     } catch (err) {
       console.error("Historical lookup error:", err);
