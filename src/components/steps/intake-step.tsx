@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,26 +7,94 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { format, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks } from "date-fns";
 import {
   Globe, Sparkles, X, Building2, MapPin, DollarSign,
-  ArrowRight, Loader2, CalendarIcon, Clock, Upload, FileText, CheckCircle2,
+  ArrowRight, Loader2, CalendarIcon, Clock, Database, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import type { CTAType } from "@/lib/schema";
 import { FLIGHTING_PRESETS } from "@/lib/schema";
-import { parsePerformanceCSV, getUniqueAdvertisers } from "@/lib/performance-utils";
-import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface HistoricalLookup {
+  status: "idle" | "searching" | "found" | "not_found";
+  campaignCount?: number;
+  lastActivity?: string;
+  channels?: string[];
+}
 
 export function IntakeStep() {
   const { state, updateIntake, setStep, setState } = usePlanner();
   const { intake } = state;
   const [analyzing, setAnalyzing] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const perfFileRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+  const [lookup, setLookup] = useState<HistoricalLookup>({ status: "idle" });
+
+  // Auto-lookup historical data when business name changes
+  const lookupHistoricalData = useCallback(async (name: string) => {
+    if (!name || name.length < 2) {
+      setLookup({ status: "idle" });
+      return;
+    }
+    setLookup({ status: "searching" });
+
+    try {
+      const searchTerm = `%${name}%`;
+
+      // Count matching campaigns
+      const { count, error: countError } = await supabase
+        .from("campaign_performance")
+        .select("*", { count: "exact", head: true })
+        .or(`advertiser_name.ilike.${searchTerm},advertiser_code.ilike.${searchTerm}`);
+
+      if (countError) throw countError;
+
+      if (!count || count === 0) {
+        setLookup({ status: "not_found" });
+        setState((prev: any) => ({
+          ...prev,
+          performanceUploaded: false,
+          performanceAdvertisers: [],
+        }));
+        return;
+      }
+
+      // Get last activity date and channels
+      const { data: summary } = await supabase
+        .from("campaign_performance")
+        .select("campaign_day, digital_channel")
+        .or(`advertiser_name.ilike.${searchTerm},advertiser_code.ilike.${searchTerm}`)
+        .order("campaign_day", { ascending: false })
+        .limit(500);
+
+      const lastDate = summary?.[0]?.campaign_day;
+      const channels = [...new Set(summary?.map((r) => r.digital_channel).filter(Boolean) || [])];
+
+      setLookup({
+        status: "found",
+        campaignCount: count,
+        lastActivity: lastDate ? format(new Date(lastDate), "MMMM yyyy") : undefined,
+        channels: channels as string[],
+      });
+
+      setState((prev: any) => ({
+        ...prev,
+        performanceUploaded: true,
+        performanceAdvertisers: [name],
+      }));
+    } catch (err) {
+      console.error("Historical lookup error:", err);
+      setLookup({ status: "not_found" });
+    }
+  }, [setState]);
+
+  // Debounced lookup on business name change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      lookupHistoricalData(intake.businessName);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [intake.businessName, lookupHistoricalData]);
 
   const handleAnalyze = async () => {
     if (!intake.websiteUrl) return;
@@ -74,69 +142,6 @@ export function IntakeStep() {
     setAnalyzing(false);
   };
 
-  const handlePerformanceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadProgress(10);
-
-    try {
-      const text = await file.text();
-      setUploadProgress(30);
-
-      const batchId = `batch_${Date.now()}`;
-      const rows = parsePerformanceCSV(text, batchId);
-      if (rows.length === 0) {
-        toast({ title: "No Data", description: "Could not parse any rows from the CSV.", variant: "destructive" });
-        setUploading(false);
-        return;
-      }
-
-      const advertisers = getUniqueAdvertisers(rows);
-      setUploadProgress(50);
-
-      // Upload in chunks to the edge function
-      const chunkSize = 2000;
-      for (let i = 0; i < rows.length; i += chunkSize) {
-        const chunk = rows.slice(i, i + chunkSize);
-        await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-performance`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({ rows: chunk, batchId }),
-          }
-        );
-        setUploadProgress(50 + Math.round((i / rows.length) * 45));
-      }
-
-      setUploadProgress(100);
-
-      // Store advertiser info in planner state
-      setState(prev => ({
-        ...prev,
-        performanceUploaded: true,
-        performanceAdvertisers: advertisers,
-        performanceBatchId: batchId,
-        performanceRowCount: rows.length,
-      } as any));
-
-      toast({
-        title: "Performance Data Uploaded",
-        description: `${rows.length.toLocaleString()} rows uploaded for ${advertisers.length} advertiser(s): ${advertisers.join(", ")}`,
-      });
-    } catch (err) {
-      console.error("Performance upload error:", err);
-      toast({ title: "Upload Failed", description: "Could not process the CSV file.", variant: "destructive" });
-    }
-
-    setUploading(false);
-    if (perfFileRef.current) perfFileRef.current.value = "";
-  };
-
   const removeService = (service: string) => {
     if (!intake.detected) return;
     updateIntake({
@@ -176,8 +181,6 @@ export function IntakeStep() {
   const flightStart = intake.flightStart ? new Date(intake.flightStart) : undefined;
   const flightEnd = intake.flightEnd ? new Date(intake.flightEnd) : undefined;
   const canContinue = intake.businessName && intake.monthlyBudget > 0;
-  const perfState = state as any;
-  const hasPerformanceData = perfState.performanceUploaded;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -255,56 +258,60 @@ export function IntakeStep() {
         </div>
       </Card>
 
-      {/* Performance Data Upload */}
-      <Card className="p-6 space-y-4 card-elevated">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-display font-semibold">Historical Performance Data</h3>
-            {hasPerformanceData && (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px]">
-                <CheckCircle2 className="w-3 h-3 mr-1" />
-                Uploaded
-              </Badge>
-            )}
-          </div>
+      {/* Historical Performance Data — Auto Lookup */}
+      <Card className="p-6 space-y-3 card-elevated">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-display font-semibold">Historical Performance Data</h3>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          Upload a CSV with campaign performance data. The system will auto-detect advertiser activity
-          and provide data-driven recommendations for the next flight.
-        </p>
+        {lookup.status === "idle" && (
+          <p className="text-xs text-muted-foreground">
+            Enter a business name above to automatically search for historical performance data.
+          </p>
+        )}
 
-        {hasPerformanceData && (
-          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-            <p className="text-xs text-green-800 dark:text-green-200">
-              <strong>{(perfState.performanceRowCount || 0).toLocaleString()}</strong> rows loaded for advertiser(s):{" "}
-              <strong>{(perfState.performanceAdvertisers || []).join(", ")}</strong>
+        {lookup.status === "searching" && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Searching for historical data…</span>
+          </div>
+        )}
+
+        {lookup.status === "found" && (
+          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-1">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Historical data found</span>
+            </div>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">
+              <strong>{lookup.campaignCount?.toLocaleString()}</strong> campaign records found
+              {lookup.lastActivity && <> · Last activity: <strong>{lookup.lastActivity}</strong></>}
             </p>
-            <p className="text-[10px] text-green-600 dark:text-green-400 mt-1">
-              Insights will be generated automatically when you select a goal/KPI.
+            {lookup.channels && lookup.channels.length > 0 && (
+              <div className="flex gap-1 flex-wrap mt-1">
+                {lookup.channels.slice(0, 6).map((ch) => (
+                  <Badge key={ch} variant="secondary" className="text-[10px]">{ch}</Badge>
+                ))}
+                {lookup.channels.length > 6 && (
+                  <Badge variant="secondary" className="text-[10px]">+{lookup.channels.length - 6} more</Badge>
+                )}
+              </div>
+            )}
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-500 mt-1">
+              This data will be used automatically to generate AI-powered recommendations when you select a goal.
             </p>
           </div>
         )}
 
-        <input ref={perfFileRef} type="file" accept=".csv" className="hidden" onChange={handlePerformanceUpload} />
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => perfFileRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
-            {hasPerformanceData ? "Replace Data" : "Upload CSV"}
-          </Button>
-        </div>
-
-        {uploading && (
-          <div className="space-y-1">
-            <Progress value={uploadProgress} className="h-2" />
-            <p className="text-[10px] text-muted-foreground">
-              {uploadProgress < 50 ? "Parsing CSV..." : uploadProgress < 95 ? "Uploading to database..." : "Finalizing..."}
+        {lookup.status === "not_found" && intake.businessName.length >= 2 && (
+          <div className="p-3 rounded-lg bg-muted/50 border border-border space-y-1">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">No historical data found</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Recommendations will be based on industry benchmarks and goals. Connect integrations or check Analytics to import data.
             </p>
           </div>
         )}
