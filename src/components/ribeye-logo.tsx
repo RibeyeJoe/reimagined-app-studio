@@ -3,28 +3,37 @@ import { cn } from "@/lib/utils";
 export function RibeyeLogo({ collapsed = false, className }: { collapsed?: boolean; className?: string }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      {/* Cow icon matching ribeye.media branding */}
-      <div className="w-8 h-8 flex items-center justify-center text-sidebar-primary">
-        <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M25 40 C22 28, 16 22, 10 18 C8 16, 8 14, 10 13 C14 13, 22 18, 26 26" fill="currentColor" opacity="0.9"/>
-          <path d="M75 40 C78 28, 84 22, 90 18 C92 16, 92 14, 90 13 C86 13, 78 18, 74 26" fill="currentColor" opacity="0.9"/>
-          <ellipse cx="50" cy="56" rx="30" ry="32" fill="currentColor"/>
-          <ellipse cx="20" cy="46" rx="9" ry="7" fill="currentColor" transform="rotate(-20 20 46)"/>
-          <ellipse cx="80" cy="46" rx="9" ry="7" fill="currentColor" transform="rotate(20 80 46)"/>
-          <circle cx="36" cy="46" r="4.5" fill="hsl(var(--sidebar-background))"/>
-          <circle cx="64" cy="46" r="4.5" fill="hsl(var(--sidebar-background))"/>
-          <ellipse cx="50" cy="68" rx="16" ry="12" fill="hsl(var(--sidebar-foreground))" opacity="0.3"/>
-          <circle cx="44" cy="66" r="2.5" fill="hsl(var(--sidebar-background))"/>
-          <circle cx="56" cy="66" r="2.5" fill="hsl(var(--sidebar-background))"/>
-          <path d="M46 74 Q48 77 50 77 Q52 77 54 74" stroke="hsl(var(--sidebar-background))" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      {/* Ribeye cow logo matching ribeye.media branding */}
+      <div className="w-8 h-8 flex items-center justify-center">
+        <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Horns */}
+          <path d="M22 42 C18 30, 12 22, 6 16 C4 14, 5 12, 7 12 C12 13, 20 20, 24 30" fill="hsl(16 85% 55%)" strokeWidth="0"/>
+          <path d="M78 42 C82 30, 88 22, 94 16 C96 14, 95 12, 93 12 C88 13, 80 20, 76 30" fill="hsl(16 85% 55%)" strokeWidth="0"/>
+          {/* Ears */}
+          <ellipse cx="18" cy="44" rx="10" ry="7" fill="hsl(16 85% 55%)" transform="rotate(-15 18 44)"/>
+          <ellipse cx="82" cy="44" rx="10" ry="7" fill="hsl(16 85% 55%)" transform="rotate(15 82 44)"/>
+          {/* Head */}
+          <ellipse cx="50" cy="56" rx="32" ry="34" fill="hsl(16 85% 55%)"/>
+          {/* Eyes */}
+          <circle cx="36" cy="48" r="4" fill="white"/>
+          <circle cx="64" cy="48" r="4" fill="white"/>
+          <circle cx="36" cy="48" r="2" fill="hsl(0 0% 15%)"/>
+          <circle cx="64" cy="48" r="2" fill="hsl(0 0% 15%)"/>
+          {/* Muzzle */}
+          <ellipse cx="50" cy="68" rx="18" ry="13" fill="hsl(16 85% 45%)"/>
+          {/* Nostrils */}
+          <circle cx="43" cy="67" r="3" fill="hsl(16 85% 35%)"/>
+          <circle cx="57" cy="67" r="3" fill="hsl(16 85% 35%)"/>
+          {/* Mouth */}
+          <path d="M45 76 Q48 79 50 79 Q52 79 55 76" stroke="hsl(16 85% 35%)" strokeWidth="2" strokeLinecap="round" fill="none"/>
         </svg>
       </div>
       {!collapsed && (
-        <div className="flex flex-col">
-          <span className="font-display font-bold text-sm tracking-tight text-sidebar-foreground">
+        <div className="flex items-center gap-2">
+          <span className="font-display font-bold text-base tracking-tight text-sidebar-foreground">
             ribeye
           </span>
-          <span className="text-[10px] text-sidebar-foreground/50 font-medium -mt-0.5">
+          <span className="text-[11px] text-muted-foreground font-medium px-1.5 py-0.5 bg-muted rounded">
             Omni Planner
           </span>
         </div>
