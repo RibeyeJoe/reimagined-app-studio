@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { GEO_TYPES, type GeoType } from "@/lib/schema";
-import { MapPin, Sparkles, ArrowLeft, ArrowRight, AlertTriangle, Building, Radio, Map, Hash, Landmark, Plus, X, Upload, FileText } from "lucide-react";
+import { MapPin, Sparkles, ArrowLeft, ArrowRight, AlertTriangle, Building, Radio, Map, Hash, Landmark, Plus, X, Upload, FileText, Database } from "lucide-react";
 
 const GEO_ICONS: Record<GeoType, typeof Building> = {
   City: Building, DMA: Radio, "ZIP List": Hash, Radius: Map, "Congressional District": Landmark,
@@ -25,6 +25,9 @@ function joinLocations(l: string[]): string { return l.join("; "); }
 export function GeoStep() {
   const { state, updateGeo, setStep } = usePlanner();
   const { geo, intake } = state;
+  const perfState = state as any;
+  const performanceDMAs: string[] = perfState.performanceDMAs || [];
+  const hasPerformanceData = perfState.performanceUploaded;
   const budget = intake.monthlyBudget || 0;
   const [newLoc, setNewLoc] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
@@ -32,6 +35,17 @@ export function GeoStep() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const locations = parseLocations(geo.geoValue);
   const isLowBudget = (geo.geoType === "DMA" && budget < 10000) || (geo.geoType === "Congressional District" && budget < 2500);
+
+  // Auto-populate geo from historical DMAs if geo is empty
+  useEffect(() => {
+    if (hasPerformanceData && performanceDMAs.length > 0 && !geo.geoType && !geo.geoValue) {
+      updateGeo({
+        geoType: "DMA",
+        geoValue: performanceDMAs.join("; "),
+        strategies: [],
+      });
+    }
+  }, [hasPerformanceData, performanceDMAs.length]);
 
   const addLocation = () => { if (!newLoc.trim()) return; updateGeo({ geoValue: joinLocations([...locations, newLoc.trim()]) }); setNewLoc(""); };
   const removeLocation = (i: number) => { updateGeo({ geoValue: joinLocations(locations.filter((_, idx) => idx !== i)) }); };
@@ -87,6 +101,15 @@ export function GeoStep() {
         <h2 className="text-2xl font-display font-bold text-foreground">Geographic Targeting</h2>
         <p className="text-sm text-muted-foreground mt-1">Where should we show ads? Pick a targeting method and add locations. Supports bulk entry for 200+ locations.</p>
       </div>
+
+      {hasPerformanceData && performanceDMAs.length > 0 && geo.geoType === "DMA" && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+          <Database className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <p className="text-xs text-emerald-700 dark:text-emerald-300">
+            <strong>{performanceDMAs.length} DMAs</strong> auto-populated from historical campaign data. All values are editable.
+          </p>
+        </div>
+      )}
 
       <Card className="p-6 space-y-5 card-elevated">
         <div className="flex items-center justify-between gap-2 flex-wrap">
