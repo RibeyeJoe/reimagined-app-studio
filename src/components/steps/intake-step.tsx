@@ -85,6 +85,7 @@ export function IntakeStep() {
         performanceAdvertiserCode: null,
         performanceAdvertiserName: null,
         performanceDMAs: [],
+        performanceZIPs: [],
       }));
       return;
     }
@@ -123,6 +124,7 @@ export function IntakeStep() {
           performanceAdvertiserCode: null,
           performanceAdvertiserName: null,
           performanceDMAs: [],
+          performanceZIPs: [],
         }));
         return;
       }
@@ -152,12 +154,14 @@ export function IntakeStep() {
           performanceAdvertiserCode: null,
           performanceAdvertiserName: null,
           performanceDMAs: [],
+          performanceZIPs: [],
         }));
         return;
       }
 
       const channels = (insights.channels || []).map((channel: { channel: string }) => channel.channel);
       const dmas = (insights.topDMAs || []).map((row: { dma: string }) => row.dma).filter(Boolean);
+      const zips = (insights.topZIPs || []).map((row: { zip: string }) => row.zip).filter(Boolean);
 
       setLookup({
         status: "found",
@@ -173,6 +177,7 @@ export function IntakeStep() {
         performanceAdvertiserCode: matchedAdvertiser.advertiser_code,
         performanceAdvertiserName: matchedAdvertiser.advertiser_name || matchedAdvertiser.advertiser_code,
         performanceDMAs: dmas,
+        performanceZIPs: zips,
       }));
     } catch (err) {
       console.error("Historical lookup error:", err);
