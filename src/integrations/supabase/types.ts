@@ -14,7 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      campaign_performance: {
+        Row: {
+          acr: number | null
+          advertiser_code: string
+          advertiser_name: string | null
+          booked_impressions: number | null
+          campaign_day: string
+          created_at: string
+          creative_duration: number | null
+          creative_name: string | null
+          day_of_week: string | null
+          daypart: string | null
+          device_type: string | null
+          digital_channel: string | null
+          dma: string | null
+          flight_end: string | null
+          flight_start: string | null
+          frequency: number | null
+          genre: string | null
+          goal: string | null
+          hour_of_day: number | null
+          id: string
+          impressions: number | null
+          line_item_name: string | null
+          publisher: string | null
+          reach: number | null
+          upload_batch_id: string | null
+          vcr: number | null
+          zip: string | null
+        }
+        Insert: {
+          acr?: number | null
+          advertiser_code: string
+          advertiser_name?: string | null
+          booked_impressions?: number | null
+          campaign_day: string
+          created_at?: string
+          creative_duration?: number | null
+          creative_name?: string | null
+          day_of_week?: string | null
+          daypart?: string | null
+          device_type?: string | null
+          digital_channel?: string | null
+          dma?: string | null
+          flight_end?: string | null
+          flight_start?: string | null
+          frequency?: number | null
+          genre?: string | null
+          goal?: string | null
+          hour_of_day?: number | null
+          id?: string
+          impressions?: number | null
+          line_item_name?: string | null
+          publisher?: string | null
+          reach?: number | null
+          upload_batch_id?: string | null
+          vcr?: number | null
+          zip?: string | null
+        }
+        Update: {
+          acr?: number | null
+          advertiser_code?: string
+          advertiser_name?: string | null
+          booked_impressions?: number | null
+          campaign_day?: string
+          created_at?: string
+          creative_duration?: number | null
+          creative_name?: string | null
+          day_of_week?: string | null
+          daypart?: string | null
+          device_type?: string | null
+          digital_channel?: string | null
+          dma?: string | null
+          flight_end?: string | null
+          flight_start?: string | null
+          frequency?: number | null
+          genre?: string | null
+          goal?: string | null
+          hour_of_day?: number | null
+          id?: string
+          impressions?: number | null
+          line_item_name?: string | null
+          publisher?: string | null
+          reach?: number | null
+          upload_batch_id?: string | null
+          vcr?: number | null
+          zip?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
