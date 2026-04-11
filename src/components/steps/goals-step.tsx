@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -5,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { GOALS, type Goal } from "@/lib/schema";
 import { GOAL_KPI_MAP } from "@/lib/benchmarks";
+import { AdvertiserInsightsPanel } from "@/components/advertiser-insights-panel";
+import type { AdvertiserInsights } from "@/lib/performance-utils";
 import {
   Target, Eye, MousePointerClick, UserCheck, Footprints, Swords,
   Sparkles, X, ArrowLeft, ArrowRight,
@@ -23,9 +26,66 @@ const GOAL_DESCRIPTIONS: Record<Goal, string> = {
   Conquest: "Win market share from competitors in your area",
 };
 
+// Map goals to KPI strings for the insights engine
+const GOAL_KPI_LABELS: Record<Goal, string> = {
+  Awareness: "Brand Awareness (Impressions, Reach, VCR)",
+  Consideration: "Consideration (Clicks, CTR, Engagement)",
+  Leads: "Lead Generation (Conversions, CPL, Form Fills)",
+  "Foot Traffic": "Foot Traffic (Store Visits, Location Reach)",
+  Conquest: "Conquest (SOV, Market Share, Competitive Reach)",
+};
+
 export function GoalsStep() {
   const { state, updateGoals, setStep } = usePlanner();
   const { goals } = state;
+  const perfState = state as any;
+  const hasPerformanceData = perfState.performanceUploaded;
+  const advertisers: string[] = perfState.performanceAdvertisers || [];
+
+  const [insights, setInsights] = useState<AdvertiserInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [lookback, setLookback] = useState(90);
+
+  // Fetch insights when goal changes and we have performance data
+  useEffect(() => {
+    if (!hasPerformanceData || advertisers.length === 0) return;
+    fetchInsights(goals.goal ? GOAL_KPI_LABELS[goals.goal] : undefined);
+  }, [goals.goal, lookback]);
+
+  // Also fetch on mount if we have data
+  useEffect(() => {
+    if (hasPerformanceData && advertisers.length > 0 && !insights) {
+      fetchInsights(goals.goal ? GOAL_KPI_LABELS[goals.goal] : undefined);
+    }
+  }, [hasPerformanceData]);
+
+  const fetchInsights = async (kpi?: string) => {
+    if (advertisers.length === 0) return;
+    setInsightsLoading(true);
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/advertiser-insights`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            advertiserCode: advertisers[0],
+            lookbackDays: lookback,
+            kpi,
+          }),
+        }
+      );
+      if (resp.ok) {
+        setInsights(await resp.json());
+      }
+    } catch (err) {
+      console.error("Insights fetch error:", err);
+    }
+    setInsightsLoading(false);
+  };
 
   const selectGoal = (goal: Goal) => {
     updateGoals({ goal, kpis: [...(GOAL_KPI_MAP[goal] || [])] });
@@ -43,6 +103,17 @@ export function GoalsStep() {
           What does your client want to achieve? Pick a primary goal and we'll recommend KPIs.
         </p>
       </div>
+
+      {/* Advertiser Insights Panel - shows before goal selection if data exists */}
+      {hasPerformanceData && (
+        <AdvertiserInsightsPanel
+          insights={insights}
+          loading={insightsLoading}
+          lookback={lookback}
+          onLookbackChange={(days) => setLookback(days)}
+          kpi={goals.goal ? GOAL_KPI_LABELS[goals.goal] : undefined}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {GOALS.map(goal => {
