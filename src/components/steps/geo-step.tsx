@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,6 +25,9 @@ function joinLocations(l: string[]): string { return l.join("; "); }
 export function GeoStep() {
   const { state, updateGeo, setStep } = usePlanner();
   const { geo, intake } = state;
+  const perfState = state as any;
+  const performanceDMAs: string[] = perfState.performanceDMAs || [];
+  const hasPerformanceData = perfState.performanceUploaded;
   const budget = intake.monthlyBudget || 0;
   const [newLoc, setNewLoc] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
@@ -32,6 +35,17 @@ export function GeoStep() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const locations = parseLocations(geo.geoValue);
   const isLowBudget = (geo.geoType === "DMA" && budget < 10000) || (geo.geoType === "Congressional District" && budget < 2500);
+
+  // Auto-populate geo from historical DMAs if geo is empty
+  useEffect(() => {
+    if (hasPerformanceData && performanceDMAs.length > 0 && !geo.geoType && !geo.geoValue) {
+      updateGeo({
+        geoType: "DMA",
+        geoValue: performanceDMAs.join("; "),
+        strategies: [],
+      });
+    }
+  }, [hasPerformanceData, performanceDMAs.length]);
 
   const addLocation = () => { if (!newLoc.trim()) return; updateGeo({ geoValue: joinLocations([...locations, newLoc.trim()]) }); setNewLoc(""); };
   const removeLocation = (i: number) => { updateGeo({ geoValue: joinLocations(locations.filter((_, idx) => idx !== i)) }); };

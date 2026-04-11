@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { AUDIENCE_TIERS, type AudienceTier, type AudienceItem } from "@/lib/schema";
-import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords } from "lucide-react";
+import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2 } from "lucide-react";
 
 const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; description: string }> = {
   "High Intent": { icon: Zap, color: "bg-emerald-100 text-emerald-700", description: "Ready to buy or take action now" },
@@ -69,9 +70,16 @@ export function AudiencesStep() {
             </Label>
           </div>
         </div>
-        <Button size="sm" variant="outline" onClick={suggestAudiences}>
-          <Sparkles className="w-3.5 h-3.5 mr-1.5" /> AI Suggest
-        </Button>
+        <div className="flex gap-2">
+          {audiences.audiences.length > 0 && (
+            <Button size="sm" variant="outline" className="text-destructive" onClick={() => updateAudiences({ audiences: [] })}>
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Clear All
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={suggestAudiences}>
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> AI Suggest
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -111,7 +119,17 @@ export function AudiencesStep() {
       <Card className="p-4 card-elevated">
         <div className="flex gap-2">
           <Input placeholder="Add custom audience..." value={newInput}
-            onChange={e => setNewInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addAudience()} />
+            onChange={e => setNewInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addAudience()} className="flex-1" />
+          <Select value={newTier} onValueChange={(v) => setNewTier(v as AudienceTier)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AUDIENCE_TIERS.map(tier => (
+                <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" variant="outline" onClick={addAudience} disabled={!newInput.trim()}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Add
           </Button>
