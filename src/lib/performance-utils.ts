@@ -150,6 +150,7 @@ export interface AdvertiserInsights {
     dmaCount: number;
   }[];
   topDMAs?: { dma: string; impressions: number; reach: number; count: number }[];
+  topZIPs?: { zip: string; impressions: number; reach: number; count: number }[];
   dayparts?: { daypart: string; impressions: number; avgVCR: number; rows: number }[];
   recommendations?: string[];
   totalImpressions?: number;

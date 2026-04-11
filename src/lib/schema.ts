@@ -235,6 +235,12 @@ export interface PlannerState {
   recommendations: RecommendationSection | null;
   quickStart: QuickStartState;
   historicalData: HistoricalPerformance[];
+  performanceUploaded: boolean;
+  performanceAdvertisers: string[];
+  performanceAdvertiserCode: string | null;
+  performanceAdvertiserName: string | null;
+  performanceDMAs: string[];
+  performanceZIPs: string[];
 }
 
 export interface SavedPlan {

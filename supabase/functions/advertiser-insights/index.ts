@@ -90,35 +90,37 @@ serve(async (req) => {
       dmaCount: s.dmas.size,
     }));
 
-    // DMA-level breakdown (top 10 by impressions)
+    // DMA-level breakdown (top by impressions)
     const dmaStats: Record<string, { impressions: number; reach: number; count: number }> = {};
+    const zipStats: Record<string, { impressions: number; reach: number; count: number }> = {};
+
     for (const row of data) {
-      const dma = row.dma || "Unknown";
-      if (!dmaStats[dma]) dmaStats[dma] = { impressions: 0, reach: 0, count: 0 };
-      dmaStats[dma].impressions += Number(row.impressions) || 0;
-      dmaStats[dma].reach += Number(row.reach) || 0;
-      dmaStats[dma].count++;
+      const dma = row.dma?.trim();
+      if (dma) {
+        if (!dmaStats[dma]) dmaStats[dma] = { impressions: 0, reach: 0, count: 0 };
+        dmaStats[dma].impressions += Number(row.impressions) || 0;
+        dmaStats[dma].reach += Number(row.reach) || 0;
+        dmaStats[dma].count++;
+      }
+
+      const zip = row.zip?.trim();
+      if (zip) {
+        if (!zipStats[zip]) zipStats[zip] = { impressions: 0, reach: 0, count: 0 };
+        zipStats[zip].impressions += Number(row.impressions) || 0;
+        zipStats[zip].reach += Number(row.reach) || 0;
+        zipStats[zip].count++;
+      }
     }
+
     const topDMAs = Object.entries(dmaStats)
       .map(([dma, s]) => ({ dma, ...s }))
       .sort((a, b) => b.impressions - a.impressions)
-      .slice(0, 15);
+      .slice(0, 25);
 
-    // Daypart breakdown
-    const daypartStats: Record<string, { impressions: number; vcr: number[]; count: number }> = {};
-    for (const row of data) {
-      const dp = row.daypart || "Unknown";
-      if (!daypartStats[dp]) daypartStats[dp] = { impressions: 0, vcr: [], count: 0 };
-      daypartStats[dp].impressions += Number(row.impressions) || 0;
-      if (row.vcr) daypartStats[dp].vcr.push(Number(row.vcr));
-      daypartStats[dp].count++;
-    }
-    const daypartSummary = Object.entries(daypartStats).map(([daypart, s]) => ({
-      daypart,
-      impressions: s.impressions,
-      avgVCR: Math.round(avg(s.vcr) * 100) / 100,
-      rows: s.count,
-    })).sort((a, b) => b.impressions - a.impressions);
+    const topZIPs = Object.entries(zipStats)
+      .map(([zip, s]) => ({ zip, ...s }))
+      .sort((a, b) => b.impressions - a.impressions)
+      .slice(0, 100);
 
     // Generate AI-driven recommendations if KPI is provided
     let recommendations: string[] = [];
@@ -201,6 +203,7 @@ Be specific with numbers from the data. Return a JSON array of recommendation st
       totalRows: data.length,
       channels: channelSummary,
       topDMAs,
+      topZIPs,
       dayparts: daypartSummary,
       recommendations,
       totalImpressions: channelSummary.reduce((a, c) => a + c.totalImpressions, 0),
