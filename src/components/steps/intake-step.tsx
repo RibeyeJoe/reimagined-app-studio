@@ -24,17 +24,48 @@ export function IntakeStep() {
   const handleAnalyze = async () => {
     if (!intake.websiteUrl) return;
     setAnalyzing(true);
-    await new Promise(r => setTimeout(r, 1500));
-    updateIntake({
-      detected: {
-        vertical: "General",
-        services: ["Digital Marketing", "Brand Strategy"],
-        ctaType: "Form" as CTAType,
-        businessName: intake.businessName || "Business",
-        confidence: "Medium",
-      },
-      analyzed: true,
-    });
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-website`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            websiteUrl: intake.websiteUrl,
+            businessName: intake.businessName,
+          }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Analysis failed");
+      }
+      const data = await response.json();
+      updateIntake({
+        detected: {
+          vertical: data.vertical || "General",
+          services: data.services || [],
+          ctaType: (data.ctaType || "Form") as CTAType,
+          businessName: data.businessName || intake.businessName || "Business",
+          confidence: data.confidence || "Medium",
+        },
+        analyzed: true,
+      });
+    } catch (err) {
+      console.error("Website analysis error:", err);
+      updateIntake({
+        detected: {
+          vertical: "General",
+          services: ["Digital Marketing"],
+          ctaType: "Form" as CTAType,
+          businessName: intake.businessName || "Business",
+          confidence: "Low",
+        },
+        analyzed: true,
+      });
+    }
     setAnalyzing(false);
   };
 
