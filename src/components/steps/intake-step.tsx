@@ -24,6 +24,48 @@ interface HistoricalLookup {
   channels?: string[];
 }
 
+const normalizeAdvertiser = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const getAdvertiserSearchVariants = (value: string) => {
+  const sanitizedWords = value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const variants = new Set<string>();
+
+  for (const word of sanitizedWords) {
+    if (word.length >= 2) variants.add(word);
+    if (word.endsWith("s") && word.length > 4) variants.add(word.slice(0, -1));
+  }
+
+  return [...variants];
+};
+
+const buildAdvertiserFilter = (variants: string[]) =>
+  variants
+    .flatMap((variant) => [
+      `advertiser_name.ilike.%${variant}%`,
+      `advertiser_code.ilike.%${variant.toUpperCase()}%`,
+    ])
+    .join(",");
+
+const scoreAdvertiserMatch = (
+  candidate: { advertiser_code: string; advertiser_name: string | null },
+  query: string
+) => {
+  const normalizedQuery = normalizeAdvertiser(query);
+  const normalizedName = normalizeAdvertiser(candidate.advertiser_name || "");
+  const normalizedCode = normalizeAdvertiser(candidate.advertiser_code);
+
+  if (normalizedCode === normalizedQuery) return 120;
+  if (normalizedName === normalizedQuery) return 110;
+  if (normalizedName.includes(normalizedQuery)) return 100;
+  if (normalizedCode.includes(normalizedQuery)) return 90;
+  return 0;
+};
+
 export function IntakeStep() {
   const { state, updateIntake, setStep, setState } = usePlanner();
   const { intake } = state;
@@ -32,56 +74,104 @@ export function IntakeStep() {
 
   // Auto-lookup historical data when business name changes
   const lookupHistoricalData = useCallback(async (name: string) => {
-    if (!name || name.length < 2) {
+    const trimmedName = name.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
       setLookup({ status: "idle" });
+      setState((prev: any) => ({
+        ...prev,
+        performanceUploaded: false,
+        performanceAdvertisers: [],
+        performanceAdvertiserCode: null,
+        performanceAdvertiserName: null,
+        performanceDMAs: [],
+      }));
       return;
     }
+
     setLookup({ status: "searching" });
 
     try {
-      const searchTerm = name.trim();
+      const variants = getAdvertiserSearchVariants(trimmedName);
+      if (variants.length === 0) throw new Error("No valid advertiser search variants");
 
-      // Count matching campaigns
-      const { count, error: countError } = await supabase
+      const { data: candidateRows, error: candidateError } = await supabase
         .from("campaign_performance")
-        .select("*", { count: "exact", head: true })
-        .or(`advertiser_name.ilike.%${searchTerm}%,advertiser_code.ilike.%${searchTerm}%`);
+        .select("advertiser_code, advertiser_name")
+        .or(buildAdvertiserFilter(variants))
+        .limit(25);
 
-      if (countError) throw countError;
+      if (candidateError) throw candidateError;
 
-      if (!count || count === 0) {
+      const uniqueCandidates = Array.from(
+        new Map(
+          (candidateRows || []).map((row) => [
+            `${row.advertiser_code}:${row.advertiser_name || ""}`,
+            row,
+          ])
+        ).values()
+      ).sort((a, b) => scoreAdvertiserMatch(b, trimmedName) - scoreAdvertiserMatch(a, trimmedName));
+
+      const matchedAdvertiser = uniqueCandidates[0];
+
+      if (!matchedAdvertiser) {
         setLookup({ status: "not_found" });
         setState((prev: any) => ({
           ...prev,
           performanceUploaded: false,
           performanceAdvertisers: [],
+          performanceAdvertiserCode: null,
+          performanceAdvertiserName: null,
+          performanceDMAs: [],
         }));
         return;
       }
 
-      // Get last activity date, channels, and DMAs
-      const { data: summary } = await supabase
-        .from("campaign_performance")
-        .select("campaign_day, digital_channel, dma")
-        .or(`advertiser_name.ilike.%${searchTerm}%,advertiser_code.ilike.%${searchTerm}%`)
-        .order("campaign_day", { ascending: false })
-        .limit(1000);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/advertiser-insights`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          advertiserCode: matchedAdvertiser.advertiser_code,
+          lookbackDays: 90,
+        }),
+      });
 
-      const lastDate = summary?.[0]?.campaign_day;
-      const channels = [...new Set(summary?.map((r) => r.digital_channel).filter(Boolean) || [])];
-      const dmas = [...new Set(summary?.map((r) => r.dma).filter(Boolean) || [])];
+      if (!response.ok) throw new Error("Historical insights lookup failed");
+
+      const insights = await response.json();
+
+      if (!insights.found) {
+        setLookup({ status: "not_found" });
+        setState((prev: any) => ({
+          ...prev,
+          performanceUploaded: false,
+          performanceAdvertisers: [],
+          performanceAdvertiserCode: null,
+          performanceAdvertiserName: null,
+          performanceDMAs: [],
+        }));
+        return;
+      }
+
+      const channels = (insights.channels || []).map((channel: { channel: string }) => channel.channel);
+      const dmas = (insights.topDMAs || []).map((row: { dma: string }) => row.dma).filter(Boolean);
 
       setLookup({
         status: "found",
-        campaignCount: count,
-        lastActivity: lastDate ? format(new Date(lastDate), "MMMM yyyy") : undefined,
-        channels: channels as string[],
+        campaignCount: insights.totalRows,
+        lastActivity: insights.dateRange?.max ? format(new Date(insights.dateRange.max), "MMMM yyyy") : undefined,
+        channels,
       });
 
       setState((prev: any) => ({
         ...prev,
         performanceUploaded: true,
-        performanceAdvertisers: [name],
+        performanceAdvertisers: [matchedAdvertiser.advertiser_name || matchedAdvertiser.advertiser_code],
+        performanceAdvertiserCode: matchedAdvertiser.advertiser_code,
+        performanceAdvertiserName: matchedAdvertiser.advertiser_name || matchedAdvertiser.advertiser_code,
         performanceDMAs: dmas,
       }));
     } catch (err) {

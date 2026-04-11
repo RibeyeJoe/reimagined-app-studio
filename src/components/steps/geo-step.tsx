@@ -28,6 +28,7 @@ export function GeoStep() {
   const perfState = state as any;
   const performanceDMAs: string[] = perfState.performanceDMAs || [];
   const hasPerformanceData = perfState.performanceUploaded;
+  const performanceAdvertiserName: string | undefined = perfState.performanceAdvertiserName || undefined;
   const budget = intake.monthlyBudget || 0;
   const [newLoc, setNewLoc] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
@@ -45,7 +46,7 @@ export function GeoStep() {
         strategies: [],
       });
     }
-  }, [hasPerformanceData, performanceDMAs.length]);
+  }, [hasPerformanceData, performanceDMAs, geo.geoType, geo.geoValue, updateGeo]);
 
   const addLocation = () => { if (!newLoc.trim()) return; updateGeo({ geoValue: joinLocations([...locations, newLoc.trim()]) }); setNewLoc(""); };
   const removeLocation = (i: number) => { updateGeo({ geoValue: joinLocations(locations.filter((_, idx) => idx !== i)) }); };
@@ -106,7 +107,7 @@ export function GeoStep() {
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
           <Database className="w-4 h-4 text-emerald-600 flex-shrink-0" />
           <p className="text-xs text-emerald-700 dark:text-emerald-300">
-            <strong>{performanceDMAs.length} DMAs</strong> auto-populated from historical campaign data. All values are editable.
+            <strong>{performanceDMAs.length} DMAs</strong> auto-populated from {performanceAdvertiserName || "historical"} campaign data. All values are editable.
           </p>
         </div>
       )}
