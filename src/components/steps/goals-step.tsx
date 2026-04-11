@@ -39,8 +39,8 @@ export function GoalsStep() {
   const { state, updateGoals, setStep } = usePlanner();
   const { goals } = state;
   const perfState = state as any;
-  const hasPerformanceData = perfState.performanceUploaded;
-  const advertisers: string[] = perfState.performanceAdvertisers || [];
+  const advertiserCode: string | undefined = perfState.performanceAdvertiserCode || undefined;
+  const hasPerformanceData = Boolean(perfState.performanceUploaded && advertiserCode);
 
   const [insights, setInsights] = useState<AdvertiserInsights | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -48,19 +48,19 @@ export function GoalsStep() {
 
   // Fetch insights when goal changes and we have performance data
   useEffect(() => {
-    if (!hasPerformanceData || advertisers.length === 0) return;
+    if (!hasPerformanceData || !advertiserCode) return;
     fetchInsights(goals.goal ? GOAL_KPI_LABELS[goals.goal] : undefined);
-  }, [goals.goal, lookback]);
+  }, [goals.goal, lookback, hasPerformanceData, advertiserCode]);
 
   // Also fetch on mount if we have data
   useEffect(() => {
-    if (hasPerformanceData && advertisers.length > 0 && !insights) {
+    if (hasPerformanceData && advertiserCode && !insights) {
       fetchInsights(goals.goal ? GOAL_KPI_LABELS[goals.goal] : undefined);
     }
-  }, [hasPerformanceData]);
+  }, [hasPerformanceData, advertiserCode, insights]);
 
   const fetchInsights = async (kpi?: string) => {
-    if (advertisers.length === 0) return;
+    if (!advertiserCode) return;
     setInsightsLoading(true);
     try {
       const resp = await fetch(
@@ -72,7 +72,7 @@ export function GoalsStep() {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            advertiserCode: advertisers[0],
+            advertiserCode,
             lookbackDays: lookback,
             kpi,
           }),
