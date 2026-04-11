@@ -5,22 +5,19 @@ export function RibeyeLogo({ collapsed = false, className }: { collapsed?: boole
     <div className={cn("flex items-center gap-2.5", className)}>
       <div className="w-8 h-8 flex items-center justify-center">
         <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          {/* Horns */}
-          <path d="M30 32 C28 22, 24 16, 20 12 C18 10, 19 8, 21 9 C26 12, 30 18, 32 26" fill="#3C2415"/>
-          <path d="M70 32 C72 22, 76 16, 80 12 C82 10, 81 8, 79 9 C74 12, 70 18, 68 26" fill="#3C2415"/>
-          {/* Ears */}
-          <ellipse cx="16" cy="42" rx="12" ry="8" fill="#3C2415" transform="rotate(-20 16 42)"/>
-          <ellipse cx="84" cy="42" rx="12" ry="8" fill="#3C2415" transform="rotate(20 84 42)"/>
-          {/* Head */}
-          <ellipse cx="50" cy="54" rx="32" ry="36" fill="#3C2415"/>
-          {/* Eyes - simple dark dots */}
-          <circle cx="36" cy="46" r="3" fill="#1a0e08"/>
-          <circle cx="64" cy="46" r="3" fill="#1a0e08"/>
-          {/* Muzzle - large cream/beige area */}
-          <ellipse cx="50" cy="70" rx="20" ry="16" fill="#F5E6D3"/>
+          {/* Horns - small subtle bumps */}
+          <path d="M34 26 C32 18, 28 14, 26 12 C25 10, 26 9, 28 10 C31 13, 34 18, 35 24" fill="#3C2415"/>
+          <path d="M66 26 C68 18, 72 14, 74 12 C75 10, 74 9, 72 10 C69 13, 66 18, 65 24" fill="#3C2415"/>
+          {/* Ears - pointed, angled outward */}
+          <path d="M14 44 C8 36, 6 30, 8 28 C10 26, 14 28, 18 34 C22 38, 24 42, 22 44 Z" fill="#3C2415"/>
+          <path d="M86 44 C92 36, 94 30, 92 28 C90 26, 86 28, 82 34 C78 38, 76 42, 78 44 Z" fill="#3C2415"/>
+          {/* Head - wide, shield-like shape */}
+          <path d="M22 40 C22 28, 32 20, 50 20 C68 20, 78 28, 78 40 L78 60 C78 78, 66 90, 50 90 C34 90, 22 78, 22 60 Z" fill="#3C2415"/>
+          {/* Muzzle - large cream area covering lower face */}
+          <path d="M28 58 C28 52, 36 48, 50 48 C64 48, 72 52, 72 58 L72 72 C72 82, 62 88, 50 88 C38 88, 28 82, 28 72 Z" fill="#F5E6D3"/>
           {/* Nostrils */}
-          <ellipse cx="42" cy="68" rx="4" ry="3.5" fill="#3C2415"/>
-          <ellipse cx="58" cy="68" rx="4" ry="3.5" fill="#3C2415"/>
+          <ellipse cx="42" cy="68" rx="5" ry="4" fill="#3C2415"/>
+          <ellipse cx="58" cy="68" rx="5" ry="4" fill="#3C2415"/>
         </svg>
       </div>
       {!collapsed && (
