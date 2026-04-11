@@ -3,11 +3,12 @@ import type {
   PlannerState, StepId, IntakeState, GoalsState, GeoState,
   AudiencesState, ChannelsState, PlanOption, SavedPlan,
   RecommendationSection, QuickStartState, SavedSessionRow,
+  HistoricalPerformance,
 } from "./schema";
 
 const defaultIntake: IntakeState = {
   websiteUrl: "", businessName: "", locations: "", monthlyBudget: 5000,
-  detected: null, analyzed: false,
+  detected: null, analyzed: false, flightStart: "", flightEnd: "",
 };
 
 const defaultGoals: GoalsState = { goal: null, kpis: [] };
@@ -27,6 +28,7 @@ const defaultState: PlannerState = {
   savedPlans: [],
   recommendations: null,
   quickStart: defaultQuickStart,
+  historicalData: [],
 };
 
 interface PlannerContextType {
@@ -43,6 +45,7 @@ interface PlannerContextType {
   updateQuickStart: (partial: Partial<QuickStartState>) => void;
   resetPlanner: () => void;
   setState: (updater: (prev: PlannerState) => PlannerState) => void;
+  setHistoricalData: (data: HistoricalPerformance[]) => void;
   savedSessions: SavedSessionRow[];
   saveSession: (name: string) => Promise<void>;
   loadSession: (id: number) => Promise<void>;
@@ -55,10 +58,12 @@ const PlannerContext = createContext<PlannerContextType | null>(null);
 function migrateState(saved: any): PlannerState {
   return {
     ...defaultState, ...saved,
+    intake: { ...defaultIntake, ...(saved.intake || {}) },
     audiences: { ...defaultAudiences, ...(saved.audiences || {}) },
     channels: { ...defaultChannels, ...(saved.channels || {}) },
     quickStart: saved.quickStart || defaultQuickStart,
     recommendations: saved.recommendations || null,
+    historicalData: saved.historicalData || [],
   };
 }
 
@@ -123,6 +128,10 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     setStateRaw(prev => { const next = { ...prev, quickStart: { ...prev.quickStart, ...partial } }; persist(next); return next; });
   }, [persist]);
 
+  const setHistoricalData = useCallback((data: HistoricalPerformance[]) => {
+    setStateRaw(prev => { const next = { ...prev, historicalData: data }; persist(next); return next; });
+  }, [persist]);
+
   const resetPlanner = useCallback(() => {
     setStateRaw(defaultState);
     localStorage.removeItem("ribeye-planner-state");
@@ -130,11 +139,8 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
 
   const saveSession = useCallback(async (name: string) => {
     const newSession: SavedSessionRow = {
-      id: Date.now(),
-      name,
-      state,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      id: Date.now(), name, state,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     const updated = [newSession, ...savedSessions];
     setSavedSessions(updated);
@@ -165,6 +171,7 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
       state, setStep, updateIntake, updateGoals, updateGeo,
       updateAudiences, updateChannels, setOptions, savePlan,
       setRecommendations, updateQuickStart, resetPlanner, setState,
+      setHistoricalData,
       savedSessions, saveSession, loadSession, deleteSession,
       sessionsLoading: false,
     }}>
