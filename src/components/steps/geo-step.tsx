@@ -102,6 +102,15 @@ export function GeoStep() {
         <p className="text-sm text-muted-foreground mt-1">Where should we show ads? Pick a targeting method and add locations. Supports bulk entry for 200+ locations.</p>
       </div>
 
+      {hasPerformanceData && performanceDMAs.length > 0 && geo.geoType === "DMA" && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+          <Database className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <p className="text-xs text-emerald-700 dark:text-emerald-300">
+            <strong>{performanceDMAs.length} DMAs</strong> auto-populated from historical campaign data. All values are editable.
+          </p>
+        </div>
+      )}
+
       <Card className="p-6 space-y-5 card-elevated">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <Label className="text-sm font-medium">Targeting Method</Label>
