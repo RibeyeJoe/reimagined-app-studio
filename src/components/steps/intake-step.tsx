@@ -7,19 +7,26 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks } from "date-fns";
+import { format, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks } from "date-fns";
 import {
   Globe, Sparkles, X, Building2, MapPin, DollarSign,
-  ArrowRight, Loader2, CalendarIcon, Clock,
+  ArrowRight, Loader2, CalendarIcon, Clock, Upload, FileText, CheckCircle2,
 } from "lucide-react";
 import type { CTAType } from "@/lib/schema";
 import { FLIGHTING_PRESETS } from "@/lib/schema";
+import { parsePerformanceCSV, getUniqueAdvertisers } from "@/lib/performance-utils";
+import { useToast } from "@/hooks/use-toast";
 
 export function IntakeStep() {
-  const { state, updateIntake, setStep } = usePlanner();
+  const { state, updateIntake, setStep, setState } = usePlanner();
   const { intake } = state;
   const [analyzing, setAnalyzing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const perfFileRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleAnalyze = async () => {
     if (!intake.websiteUrl) return;
@@ -39,9 +46,7 @@ export function IntakeStep() {
           }),
         }
       );
-      if (!response.ok) {
-        throw new Error("Analysis failed");
-      }
+      if (!response.ok) throw new Error("Analysis failed");
       const data = await response.json();
       updateIntake({
         detected: {
@@ -67,6 +72,69 @@ export function IntakeStep() {
       });
     }
     setAnalyzing(false);
+  };
+
+  const handlePerformanceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadProgress(10);
+
+    try {
+      const text = await file.text();
+      setUploadProgress(30);
+
+      const batchId = `batch_${Date.now()}`;
+      const rows = parsePerformanceCSV(text, batchId);
+      if (rows.length === 0) {
+        toast({ title: "No Data", description: "Could not parse any rows from the CSV.", variant: "destructive" });
+        setUploading(false);
+        return;
+      }
+
+      const advertisers = getUniqueAdvertisers(rows);
+      setUploadProgress(50);
+
+      // Upload in chunks to the edge function
+      const chunkSize = 2000;
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-performance`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ rows: chunk, batchId }),
+          }
+        );
+        setUploadProgress(50 + Math.round((i / rows.length) * 45));
+      }
+
+      setUploadProgress(100);
+
+      // Store advertiser info in planner state
+      setState(prev => ({
+        ...prev,
+        performanceUploaded: true,
+        performanceAdvertisers: advertisers,
+        performanceBatchId: batchId,
+        performanceRowCount: rows.length,
+      } as any));
+
+      toast({
+        title: "Performance Data Uploaded",
+        description: `${rows.length.toLocaleString()} rows uploaded for ${advertisers.length} advertiser(s): ${advertisers.join(", ")}`,
+      });
+    } catch (err) {
+      console.error("Performance upload error:", err);
+      toast({ title: "Upload Failed", description: "Could not process the CSV file.", variant: "destructive" });
+    }
+
+    setUploading(false);
+    if (perfFileRef.current) perfFileRef.current.value = "";
   };
 
   const removeService = (service: string) => {
@@ -107,8 +175,9 @@ export function IntakeStep() {
 
   const flightStart = intake.flightStart ? new Date(intake.flightStart) : undefined;
   const flightEnd = intake.flightEnd ? new Date(intake.flightEnd) : undefined;
-
   const canContinue = intake.businessName && intake.monthlyBudget > 0;
+  const perfState = state as any;
+  const hasPerformanceData = perfState.performanceUploaded;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -184,6 +253,61 @@ export function IntakeStep() {
             </div>
           </div>
         </div>
+      </Card>
+
+      {/* Performance Data Upload */}
+      <Card className="p-6 space-y-4 card-elevated">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-display font-semibold">Historical Performance Data</h3>
+            {hasPerformanceData && (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px]">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Uploaded
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Upload a CSV with campaign performance data. The system will auto-detect advertiser activity
+          and provide data-driven recommendations for the next flight.
+        </p>
+
+        {hasPerformanceData && (
+          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+            <p className="text-xs text-green-800 dark:text-green-200">
+              <strong>{(perfState.performanceRowCount || 0).toLocaleString()}</strong> rows loaded for advertiser(s):{" "}
+              <strong>{(perfState.performanceAdvertisers || []).join(", ")}</strong>
+            </p>
+            <p className="text-[10px] text-green-600 dark:text-green-400 mt-1">
+              Insights will be generated automatically when you select a goal/KPI.
+            </p>
+          </div>
+        )}
+
+        <input ref={perfFileRef} type="file" accept=".csv" className="hidden" onChange={handlePerformanceUpload} />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => perfFileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+            {hasPerformanceData ? "Replace Data" : "Upload CSV"}
+          </Button>
+        </div>
+
+        {uploading && (
+          <div className="space-y-1">
+            <Progress value={uploadProgress} className="h-2" />
+            <p className="text-[10px] text-muted-foreground">
+              {uploadProgress < 50 ? "Parsing CSV..." : uploadProgress < 95 ? "Uploading to database..." : "Finalizing..."}
+            </p>
+          </div>
+        )}
       </Card>
 
       {/* Flighting Section */}
