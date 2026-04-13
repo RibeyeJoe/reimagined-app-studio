@@ -85,6 +85,7 @@ export function mapHistoricalInsightsToPerformance(
       channel: plannerChannel,
       period: "Historical",
       impressions: 0,
+      reach: 0,
       clicks: 0,
       conversions: 0,
       spend: 0,
