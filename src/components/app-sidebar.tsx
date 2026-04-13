@@ -20,7 +20,7 @@ const workflowItems = [
 ];
 
 const analyticsItems = [
-  { title: "Reports", icon: BarChart3, href: "#", enabled: false },
+  { title: "Reports", icon: BarChart3, href: "/reports", enabled: true },
   { title: "Optimize", icon: TrendingUp, href: "#", enabled: false },
 ];
 

@@ -11,6 +11,7 @@ import OrdersPage from "@/pages/orders";
 import MediaChannelsPage from "@/pages/media-channels";
 import IntegrationsPage from "@/pages/integrations";
 import TemplatesPage from "@/pages/templates";
+import ReportsPage from "@/pages/reports";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
