@@ -70,18 +70,30 @@ function generateFallbackPlans(state: any): PlanOption[] {
   const budget = intake.monthlyBudget || 5000;
   const goal = goals.goal || "Leads";
   const mix = DEFAULT_CHANNEL_MIX[goal] || {};
+  const constrainedHistoricalChannels = (state.performanceChannels || []).map((c: string) => c.toLowerCase());
+  const isImproveMode = goals.channelMixMode === "improve" && constrainedHistoricalChannels.length > 0;
 
   const makeAllocs = (multiplier: number): ChannelAllocation[] => {
-    // Prefer user's channel selections if available
     if (channels.allocations?.length > 0) {
-      return channels.allocations.map((a: ChannelAllocation) => ({
-        ...a,
-        budget: Math.round(a.budget * multiplier),
-      }));
+      return channels.allocations
+        .map((a: ChannelAllocation) => {
+          const isHistorical = constrainedHistoricalChannels.includes(a.channel.toLowerCase());
+          const enabled = isImproveMode ? a.enabled && isHistorical : a.enabled;
+          return {
+            ...a,
+            enabled,
+            percentage: enabled ? a.percentage : 0,
+            budget: enabled ? Math.round(a.budget * multiplier) : 0,
+          };
+        })
+        .filter((a: ChannelAllocation) => a.enabled || !isImproveMode);
     }
+
     return CHANNELS.map(ch => {
+      const isHistorical = constrainedHistoricalChannels.includes(ch.toLowerCase());
       const pct = mix[ch] || 0;
-      return { channel: ch, enabled: pct > 0, percentage: pct, budget: Math.round(budget * multiplier * (pct / 100)) };
+      const enabled = isImproveMode ? pct > 0 && isHistorical : pct > 0;
+      return { channel: ch, enabled, percentage: enabled ? pct : 0, budget: enabled ? Math.round(budget * multiplier * (pct / 100)) : 0 };
     });
   };
 
@@ -160,15 +172,14 @@ export function ReviewStep() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (options.length === 0) generatePlans();
-  }, []);
-
-  const generatePlans = async () => {
     setGenerating(true);
-    await new Promise(r => setTimeout(r, 800));
-    setOptions(generateFallbackPlans(state));
-    setGenerating(false);
-  };
+    const timeout = setTimeout(() => {
+      setOptions(generateFallbackPlans(state));
+      setGenerating(false);
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [state.goals.goal, state.goals.channelMixMode, state.channels.allocations, state.intake.monthlyBudget, state.geo.geoType, state.geo.geoValue, state.audiences.audiences, state.performanceChannels]);
 
   const activePlan = options.find(o => o.name === selectedPlan) || options[0];
   const enabledChannels = activePlan?.allocations.filter(a => a.enabled) || [];
