@@ -106,7 +106,9 @@ export function ReachCurvesChart({ allocations, totalBudget }: ReachCurvesChartP
           const params = REACH_PARAMS[ch.channel];
           const rMax = params?.rMax ?? 1;
           const saturation = Math.round((reachFraction / rMax) * 100);
-          const reachCount = Math.round(reachFraction * 98_000_000);
+          const cpm = DEFAULT_CPMS[ch.channel] || 15;
+          const impressions = Math.round((ch.budget / cpm) * 1000);
+          const reachCount = Math.min(Math.round(reachFraction * 98_000_000), impressions);
           return (
             <div key={ch.channel} className="text-[10px] text-muted-foreground">
               <span className="font-semibold text-foreground">{ch.channel}</span>: {saturation}% saturated
