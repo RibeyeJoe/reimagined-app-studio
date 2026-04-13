@@ -11,7 +11,7 @@ const defaultIntake: IntakeState = {
   detected: null, analyzed: false, flightStart: "", flightEnd: "",
 };
 
-const defaultGoals: GoalsState = { goal: null, kpis: [] };
+const defaultGoals: GoalsState = { goal: null, kpis: [], channelMixMode: "expand" };
 const defaultGeo: GeoState = { geoType: null, geoValue: "", strategies: [] };
 const defaultAudiences: AudiencesState = { audiences: [], conquestEnabled: false };
 const defaultChannels: ChannelsState = { allocations: [], locked: true, activePreset: null };
@@ -19,6 +19,7 @@ const defaultQuickStart: QuickStartState = { budget: null, goal: null, websiteUr
 
 const defaultState: PlannerState = {
   currentStep: "intake",
+  planningPath: "new",
   intake: defaultIntake,
   goals: defaultGoals,
   geo: defaultGeo,
@@ -35,6 +36,7 @@ const defaultState: PlannerState = {
   performanceAdvertiserName: null,
   performanceDMAs: [],
   performanceZIPs: [],
+  performanceChannels: [],
 };
 
 interface PlannerContextType {
