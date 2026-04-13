@@ -227,7 +227,7 @@ export function calculatePlan(
     reachCI: ci,
     effectiveReach2plus: +(effectiveReach(dedupReach, 2) * 100).toFixed(1),
     effectiveReach3plus: +(effectiveReach(dedupReach, 3) * 100).toFixed(1),
-    avgFrequency: +avgFrequency(totalImpressions, dedupReach, universe).toFixed(1),
+    avgFrequency: totalReachCount > 0 ? +(totalImpressions / totalReachCount).toFixed(1) : 0,
     totalImpressions: Math.round(totalImpressions),
     totalReach: totalReachCount,
     totalAWI: Math.round(totalAWI),
