@@ -270,7 +270,7 @@ export function ReviewStep() {
         const get = (key: string) => vals[headers.indexOf(key)] || "";
         return {
           channel: get("channel") as any, period: get("period") || "Previous",
-          impressions: Number(get("impressions")) || 0, clicks: Number(get("clicks")) || 0,
+          impressions: Number(get("impressions")) || 0, reach: Number(get("reach")) || 0, clicks: Number(get("clicks")) || 0,
           conversions: Number(get("conversions")) || 0, spend: Number(get("spend")) || 0,
           cpm: Number(get("cpm")) || 0, cpc: Number(get("cpc")) || 0,
           ctr: Number(get("ctr")) || 0, convRate: Number(get("convrate") || get("conv_rate")) || 0,

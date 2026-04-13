@@ -1,21 +1,9 @@
-import type { Channel, HistoricalPerformance } from "./schema";
+import { CHANNELS, type Channel, type HistoricalPerformance } from "./schema";
 
-const NORMALIZED_PLANNER_CHANNELS: Array<{ key: string; channel: Channel }> = [
-  "Search",
-  "Social",
-  "Display",
-  "OLV",
-  "CTV",
-  "YouTube/YouTubeTV",
-  "Amazon/Prime Video/Twitch",
-  "Linear",
-  "Radio",
-  "Audio",
-  "DOOH",
-  "OOH",
-  "Email",
-  "Netflix",
-].map((channel) => ({ key: normalizeChannelKey(channel), channel }));
+const NORMALIZED_PLANNER_CHANNELS: Array<{ key: string; channel: Channel }> = CHANNELS.map((channel) => ({
+  key: normalizeChannelKey(channel),
+  channel,
+}));
 
 const HISTORICAL_CHANNEL_ALIASES: Record<string, Channel[]> = {
   search: ["Search"],
