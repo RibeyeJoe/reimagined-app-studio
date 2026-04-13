@@ -296,7 +296,7 @@ export function ReviewStep() {
           <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
             <Upload className="w-3.5 h-3.5 mr-1.5" /> Historical Data
           </Button>
-          <Button size="sm" variant="outline" onClick={generatePlans} disabled={generating}>
+          <Button size="sm" variant="outline" onClick={regeneratePlans} disabled={generating}>
             <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Regenerate
           </Button>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
