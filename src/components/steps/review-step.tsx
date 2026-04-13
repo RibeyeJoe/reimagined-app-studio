@@ -151,7 +151,6 @@ function parseDMAs(geoValue: string): string | string[] {
   const parts = geoValue.split(",").map(s => s.trim()).filter(Boolean);
   return parts.length > 1 ? parts : parts[0] || "National";
 }
-}
 
 function confidenceBadge(c: ConfidenceLevel) {
   const colors: Record<string, string> = {
