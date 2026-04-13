@@ -505,6 +505,8 @@ export function ReviewStep() {
                                 <TableCell className="text-center">
                                   {hasHistory
                                     ? <Badge variant="outline" className="text-[9px] text-green-600 border-green-300">Historical</Badge>
+                                    : m.source === "Rate Card"
+                                    ? <Badge variant="outline" className="text-[9px] text-blue-600 border-blue-300">Rate Card</Badge>
                                     : <Badge variant="outline" className="text-[9px] text-muted-foreground">Benchmark</Badge>
                                   }
                                 </TableCell>
