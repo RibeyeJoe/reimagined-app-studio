@@ -11,6 +11,7 @@ import OrdersPage from "@/pages/orders";
 import MediaChannelsPage from "@/pages/media-channels";
 import IntegrationsPage from "@/pages/integrations";
 import TemplatesPage from "@/pages/templates";
+import ReportsPage from "@/pages/reports";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
                   <Route path="/media-channels" element={<MediaChannelsPage />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/templates" element={<TemplatesPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </div>
