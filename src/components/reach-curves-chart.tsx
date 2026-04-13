@@ -28,16 +28,23 @@ export function ReachCurvesChart({ allocations, totalBudget }: ReachCurvesChartP
 
       enabledChannels.forEach(ch => {
         const channelSpend = fraction * ch.budget * 1.5;
-        // channelReach returns a 0-1 fraction; convert to absolute reach using universe
+        const cpm = (await import("@/lib/calculations")).DEFAULT_CPMS[ch.channel] || 15;
+        const impressions = Math.round((channelSpend / cpm) * 1000);
         const reachFraction = channelReach(ch.channel, channelSpend);
-        const reachCount = Math.round(reachFraction * 98_000_000); // Adults 25-54 universe
+        // Cap reach: can't reach more people than impressions delivered
+        const reachCount = Math.min(Math.round(reachFraction * 98_000_000), impressions);
         point[ch.channel] = reachCount;
-        channelReaches.push(reachFraction);
+        channelReaches.push(reachCount / 98_000_000);
       });
 
       // Deduplicated combined reach
       const dedupFraction = deduplicatedReach(channelReaches);
-      point["Combined"] = Math.round(dedupFraction * 98_000_000);
+      const totalImps = enabledChannels.reduce((s, ch) => {
+        const spend = fraction * ch.budget * 1.5;
+        const cpm2 = DEFAULT_CPMS[ch.channel] || 15;
+        return s + Math.round((spend / cpm2) * 1000);
+      }, 0);
+      point["Combined"] = Math.min(Math.round(dedupFraction * 98_000_000), totalImps);
       points.push(point);
     }
     return points;
