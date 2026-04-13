@@ -42,17 +42,33 @@ export function GeoStep() {
   const hiddenCount = locations.length - VISIBLE_LIMIT;
   const isLowBudget = (geo.geoType === "DMA" && budget < 10000) || (geo.geoType === "Congressional District" && budget < 2500);
 
-  // Auto-populate geo from historical DMA or ZIP data if geo is empty
+  // Auto-populate geo from historical data
   useEffect(() => {
-    if (!hasPerformanceData || geo.geoType || geo.geoValue) return;
+    if (!hasPerformanceData) return;
 
-    if (performanceDMAs.length > 0) {
-      updateGeo({ geoType: "DMA", geoValue: performanceDMAs.join("; "), strategies: [] });
+    const hasManualValues = Boolean(geo.geoValue);
+
+    if (!geo.geoType && !hasManualValues) {
+      if (performanceDMAs.length > 0) {
+        updateGeo({ geoType: "DMA", geoValue: performanceDMAs.join("; "), strategies: [] });
+        return;
+      }
+
+      if (performanceZIPs.length > 0) {
+        updateGeo({ geoType: "ZIP List", geoValue: performanceZIPs.join("; "), strategies: [] });
+      }
       return;
     }
 
-    if (performanceZIPs.length > 0) {
-      updateGeo({ geoType: "ZIP List", geoValue: performanceZIPs.join("; "), strategies: [] });
+    // If the user switches between historical geo types and the field is empty,
+    // preload the matching historical values for that type.
+    if (!hasManualValues && geo.geoType === "DMA" && performanceDMAs.length > 0) {
+      updateGeo({ geoValue: performanceDMAs.join("; ") });
+      return;
+    }
+
+    if (!hasManualValues && geo.geoType === "ZIP List" && performanceZIPs.length > 0) {
+      updateGeo({ geoValue: performanceZIPs.join("; ") });
     }
   }, [hasPerformanceData, performanceDMAs, performanceZIPs, geo.geoType, geo.geoValue, updateGeo]);
 
@@ -137,7 +153,16 @@ export function GeoStep() {
             const Icon = GEO_ICONS[type];
             const isSelected = geo.geoType === type;
             return (
-              <button key={type} onClick={() => updateGeo({ geoType: type, geoValue: "" })}
+              <button
+                key={type}
+                onClick={() => {
+                  const historicalGeoValue = type === "DMA"
+                    ? performanceDMAs.join("; ")
+                    : type === "ZIP List"
+                      ? performanceZIPs.join("; ")
+                      : "";
+                  updateGeo({ geoType: type, geoValue: historicalGeoValue });
+                }}
                 className={cn(
                   "flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all text-center",
                   isSelected ? "border-primary bg-coral-light/40 text-primary" : "border-border text-muted-foreground hover:border-primary/30"
