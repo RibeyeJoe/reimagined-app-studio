@@ -182,6 +182,13 @@ export function ReviewStep() {
   }, [state.goals.goal, state.goals.channelMixMode, state.channels.allocations, state.intake.monthlyBudget, state.geo.geoType, state.geo.geoValue, state.audiences.audiences, state.performanceChannels]);
 
   const activePlan = options.find(o => o.name === selectedPlan) || options[0];
+
+  const regeneratePlans = () => {
+    setGenerating(true);
+    const nextOptions = generateFallbackPlans(state);
+    setOptions(nextOptions);
+    setGenerating(false);
+  };
   const enabledChannels = activePlan?.allocations.filter(a => a.enabled) || [];
 
   /* ── totals ── */
