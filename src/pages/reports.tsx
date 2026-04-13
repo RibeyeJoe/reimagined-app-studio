@@ -237,7 +237,7 @@ export default function ReportsPage() {
             <SummaryCard icon={Eye} label="Impressions" value={fmt(Number(summary.total_impressions))} />
             <SummaryCard icon={Users} label="Reach" value={fmt(Number(summary.total_reach))} />
             <SummaryCard icon={Radio} label="Avg Frequency" value={Number(summary.avg_frequency).toFixed(2)} />
-            <SummaryCard icon={TrendingUp} label="Avg VCR" value={pct(Number(summary.avg_vcr))} />
+            <SummaryCard icon={TrendingUp} label="Avg VCR" value={Number(summary.avg_vcr).toFixed(1) + "%"} />
             <SummaryCard icon={BarChart3} label="Channels" value={String(summary.unique_channels)} />
             <SummaryCard icon={Activity} label="DMAs" value={String(summary.unique_dmas)} />
           </div>
