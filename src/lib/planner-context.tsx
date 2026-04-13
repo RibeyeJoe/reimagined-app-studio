@@ -66,12 +66,15 @@ const PlannerContext = createContext<PlannerContextType | null>(null);
 function migrateState(saved: any): PlannerState {
   return {
     ...defaultState, ...saved,
+    planningPath: saved.planningPath || "new",
     intake: { ...defaultIntake, ...(saved.intake || {}) },
+    goals: { ...defaultGoals, ...(saved.goals || {}) },
     audiences: { ...defaultAudiences, ...(saved.audiences || {}) },
     channels: { ...defaultChannels, ...(saved.channels || {}) },
     quickStart: saved.quickStart || defaultQuickStart,
     recommendations: saved.recommendations || null,
     historicalData: saved.historicalData || [],
+    performanceChannels: saved.performanceChannels || [],
   };
 }
 
