@@ -218,7 +218,7 @@ export function calculatePlan(
   const ci = reachCI(dedupReach);
   const totalImpressions = channelOutputs.reduce((s, c) => s + c.metrics.impressions, 0);
   const totalAWI = channelOutputs.reduce((s, c) => s + c.metrics.awi, 0);
-  const totalReachCount = Math.round(dedupReach * universe * 1000);
+  const totalReachCount = Math.min(Math.round(dedupReach * universe * 1000), totalImpressions);
 
   const sovInput = channelOutputs.map(c => ({ name: c.name, budget: c.budget }));
 
