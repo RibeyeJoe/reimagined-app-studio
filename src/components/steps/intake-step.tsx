@@ -20,6 +20,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
+interface AdvertiserOption {
+  code: string;
+  name: string;
+}
+
 interface HistoricalLookup {
   status: "idle" | "searching" | "found" | "not_found";
   campaignCount?: number;
