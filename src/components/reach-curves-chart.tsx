@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { ChannelAllocation } from "@/lib/schema";
-import { channelReach, deduplicatedReach, REACH_PARAMS } from "@/lib/calculations";
+import { channelReach, deduplicatedReach, REACH_PARAMS, DEFAULT_CPMS } from "@/lib/calculations";
 
 const COLORS = [
   "hsl(var(--primary))", "#ef4444", "#f59e0b", "#10b981", "#6366f1",
@@ -28,16 +28,21 @@ export function ReachCurvesChart({ allocations, totalBudget }: ReachCurvesChartP
 
       enabledChannels.forEach(ch => {
         const channelSpend = fraction * ch.budget * 1.5;
-        // channelReach returns a 0-1 fraction; convert to absolute reach using universe
+        const cpm = DEFAULT_CPMS[ch.channel] || 15;
+        const impressions = Math.round((channelSpend / cpm) * 1000);
         const reachFraction = channelReach(ch.channel, channelSpend);
-        const reachCount = Math.round(reachFraction * 98_000_000); // Adults 25-54 universe
+        const reachCount = Math.min(Math.round(reachFraction * 98_000_000), impressions);
         point[ch.channel] = reachCount;
-        channelReaches.push(reachFraction);
+        channelReaches.push(reachCount / 98_000_000);
       });
 
-      // Deduplicated combined reach
       const dedupFraction = deduplicatedReach(channelReaches);
-      point["Combined"] = Math.round(dedupFraction * 98_000_000);
+      const totalImps = enabledChannels.reduce((s, ch) => {
+        const spend = fraction * ch.budget * 1.5;
+        const cpm2 = DEFAULT_CPMS[ch.channel] || 15;
+        return s + Math.round((spend / cpm2) * 1000);
+      }, 0);
+      point["Combined"] = Math.min(Math.round(dedupFraction * 98_000_000), totalImps);
       points.push(point);
     }
     return points;
@@ -101,7 +106,9 @@ export function ReachCurvesChart({ allocations, totalBudget }: ReachCurvesChartP
           const params = REACH_PARAMS[ch.channel];
           const rMax = params?.rMax ?? 1;
           const saturation = Math.round((reachFraction / rMax) * 100);
-          const reachCount = Math.round(reachFraction * 98_000_000);
+          const cpm = DEFAULT_CPMS[ch.channel] || 15;
+          const impressions = Math.round((ch.budget / cpm) * 1000);
+          const reachCount = Math.min(Math.round(reachFraction * 98_000_000), impressions);
           return (
             <div key={ch.channel} className="text-[10px] text-muted-foreground">
               <span className="font-semibold text-foreground">{ch.channel}</span>: {saturation}% saturated

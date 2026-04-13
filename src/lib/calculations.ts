@@ -168,13 +168,16 @@ export function channelMetrics(channelName: string, budget: number, universeThou
   const cpm = DEFAULT_CPMS[channelName] || 15;
   const impressions = Math.round((budget / cpm) * 1000);
   const reachFraction = channelReach(channelName, budget);
-  const reachCount = Math.round(reachFraction * universeThousands * 1000);
+  // Cap reach count: you can't reach more unique people than you have impressions
+  const modelReachCount = Math.round(reachFraction * universeThousands * 1000);
+  const reachCount = Math.min(modelReachCount, impressions);
+  const actualReachPct = reachCount / (universeThousands * 1000);
   const freq = reachCount > 0 ? +(impressions / reachCount).toFixed(1) : 0;
   const aw = ATTENTION_WEIGHTS[channelName] || 0.5;
   return {
     impressions,
     reach: reachCount,
-    reachPct: +(reachFraction * 100).toFixed(1),
+    reachPct: +(actualReachPct * 100).toFixed(2),
     frequency: freq,
     cpm,
     attentionWeight: aw,
@@ -212,19 +215,21 @@ export function calculatePlan(
 
   const reaches = channelOutputs.map(c => c.metrics.reachPct / 100);
   const dedupReach = deduplicatedReach(reaches);
-  const ci = reachCI(dedupReach);
   const totalImpressions = channelOutputs.reduce((s, c) => s + c.metrics.impressions, 0);
   const totalAWI = channelOutputs.reduce((s, c) => s + c.metrics.awi, 0);
-  const totalReachCount = Math.round(dedupReach * universe * 1000);
+  const totalReachCount = Math.min(Math.round(dedupReach * universe * 1000), totalImpressions);
+  // Actual dedup reach fraction based on capped count
+  const actualDedupFraction = totalReachCount / (universe * 1000);
+  const ci = reachCI(actualDedupFraction);
 
   const sovInput = channelOutputs.map(c => ({ name: c.name, budget: c.budget }));
 
   return {
     totalDedupReachPct: ci.mid,
     reachCI: ci,
-    effectiveReach2plus: +(effectiveReach(dedupReach, 2) * 100).toFixed(1),
-    effectiveReach3plus: +(effectiveReach(dedupReach, 3) * 100).toFixed(1),
-    avgFrequency: +avgFrequency(totalImpressions, dedupReach, universe).toFixed(1),
+    effectiveReach2plus: +(effectiveReach(actualDedupFraction, 2) * 100).toFixed(1),
+    effectiveReach3plus: +(effectiveReach(actualDedupFraction, 3) * 100).toFixed(1),
+    avgFrequency: totalReachCount > 0 ? +(totalImpressions / totalReachCount).toFixed(1) : 0,
     totalImpressions: Math.round(totalImpressions),
     totalReach: totalReachCount,
     totalAWI: Math.round(totalAWI),
