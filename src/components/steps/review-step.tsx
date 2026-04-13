@@ -258,7 +258,7 @@ export function ReviewStep() {
   /* ── totals via calculation engine ── */
   const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
   const universeK = getUniverse(geoParam);
-  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam) : null;
+  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam, null, CUSTOM_CPMS) : null;
   const totals = {
     impressions: planCalc?.totalImpressions ?? 0,
     reach: planCalc?.totalReach ?? 0,
