@@ -468,7 +468,8 @@ export function IntakeStep() {
         </div>
       </Card>
 
-      {/* Historical Performance Data — Auto Lookup */}
+      {/* Historical Performance Data — Auto Lookup (only for existing clients) */}
+      {planningPath === "existing" && (
       <Card className="p-6 space-y-3 card-elevated">
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-primary" />
@@ -526,6 +527,7 @@ export function IntakeStep() {
           </div>
         )}
       </Card>
+      )}
 
       {/* Flighting Section */}
       <Card className="p-6 space-y-4 card-elevated">
