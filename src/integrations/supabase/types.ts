@@ -106,9 +106,74 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      mv_report_by_advertiser: {
+        Row: {
+          advertiser_code: string | null
+          advertiser_name: string | null
+          channel_count: number | null
+          dma_count: number | null
+          goal: string | null
+          impressions: number | null
+          max_day: string | null
+          min_day: string | null
+          reach: number | null
+          row_count: number | null
+        }
+        Relationships: []
+      }
+      mv_report_by_channel: {
+        Row: {
+          advertiser_code: string | null
+          channel: string | null
+          goal: string | null
+          impressions: number | null
+          max_day: string | null
+          min_day: string | null
+          reach: number | null
+          row_count: number | null
+        }
+        Relationships: []
+      }
+      mv_report_by_dma: {
+        Row: {
+          advertiser_code: string | null
+          dma: string | null
+          goal: string | null
+          impressions: number | null
+          max_day: string | null
+          min_day: string | null
+          reach: number | null
+          row_count: number | null
+        }
+        Relationships: []
+      }
+      mv_report_filters: {
+        Row: {
+          code: string | null
+          filter_type: string | null
+          name: string | null
+        }
+        Relationships: []
+      }
+      mv_report_summary: {
+        Row: {
+          advertiser_code: string | null
+          avg_frequency: number | null
+          avg_vcr: number | null
+          digital_channel: string | null
+          goal: string | null
+          max_day: string | null
+          min_day: string | null
+          total_impressions: number | null
+          total_reach: number | null
+          total_rows: number | null
+          unique_dmas: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      refresh_report_views: { Args: never; Returns: undefined }
       report_advertisers_list: {
         Args: never
         Returns: {
