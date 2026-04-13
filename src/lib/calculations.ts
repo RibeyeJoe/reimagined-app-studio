@@ -215,10 +215,12 @@ export function calculatePlan(
 
   const reaches = channelOutputs.map(c => c.metrics.reachPct / 100);
   const dedupReach = deduplicatedReach(reaches);
-  const ci = reachCI(dedupReach);
   const totalImpressions = channelOutputs.reduce((s, c) => s + c.metrics.impressions, 0);
   const totalAWI = channelOutputs.reduce((s, c) => s + c.metrics.awi, 0);
   const totalReachCount = Math.min(Math.round(dedupReach * universe * 1000), totalImpressions);
+  // Actual dedup reach fraction based on capped count
+  const actualDedupFraction = totalReachCount / (universe * 1000);
+  const ci = reachCI(actualDedupFraction);
 
   const sovInput = channelOutputs.map(c => ({ name: c.name, budget: c.budget }));
 
