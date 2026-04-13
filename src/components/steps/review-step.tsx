@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance } from "@/lib/schema";
-import { calculatePlan, channelMetrics, DEFAULT_CPMS } from "@/lib/calculations";
+import { calculatePlan, channelMetrics, getUniverse, DEFAULT_CPMS } from "@/lib/calculations";
 import { CHANNELS } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
 import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
@@ -40,14 +40,14 @@ const PLAN_META: Record<string, { icon: typeof Shield; label: string; color: str
 
 /* ── CPM benchmarks now come from calculations.ts ── */
 
-function estimateMetrics(alloc: ChannelAllocation) {
-  const m = channelMetrics(alloc.channel, alloc.budget, 98000); // Adults 25-54 universe
+function estimateMetrics(alloc: ChannelAllocation, universeK: number) {
+  const m = channelMetrics(alloc.channel, alloc.budget, universeK);
   return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm };
 }
 
-function generateSOV(allocs: ChannelAllocation[], _budget: number): ShareOfVoice[] {
+function generateSOV(allocs: ChannelAllocation[], _budget: number, geo?: string | string[] | null, audience?: string | null): ShareOfVoice[] {
   const enabled = allocs.filter(a => a.enabled && a.budget > 0);
-  const plan = calculatePlan(allocs);
+  const plan = calculatePlan(allocs, "Adults 25-54", geo, audience);
   const sovMap = new Map(plan.shareOfVoice.map(s => [s.name, s]));
 
   return enabled.map(a => {
@@ -143,7 +143,14 @@ function generateFallbackPlans(state: any): PlanOption[] {
     },
   ];
 
-  return plans.map(p => ({ ...p, shareOfVoice: generateSOV(p.allocations, p.totalBudget) }));
+  return plans.map(p => ({ ...p, shareOfVoice: generateSOV(p.allocations, p.totalBudget, state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National", null) }));
+}
+
+function parseDMAs(geoValue: string): string | string[] {
+  if (!geoValue) return "National";
+  const parts = geoValue.split(",").map(s => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts : parts[0] || "National";
+}
 }
 
 function confidenceBadge(c: ConfidenceLevel) {
