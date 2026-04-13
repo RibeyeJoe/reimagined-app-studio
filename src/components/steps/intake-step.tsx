@@ -13,9 +13,12 @@ import {
   Globe, Sparkles, X, Building2, MapPin, DollarSign,
   ArrowRight, Loader2, CalendarIcon, Clock, Database, CheckCircle2, AlertCircle,
 } from "lucide-react";
-import type { CTAType } from "@/lib/schema";
+import type { CTAType, PlanningPath } from "@/lib/schema";
 import { FLIGHTING_PRESETS } from "@/lib/schema";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface HistoricalLookup {
   status: "idle" | "searching" | "found" | "not_found";
