@@ -159,16 +159,19 @@ export function deduplicatedReach(channelReaches: number[]): number {
   if (n === 0) return 0;
   if (n === 1) return active[0];
 
-  // Independence correction (inclusion-exclusion)
+  // Independence model: assumes no audience overlap
   let independenceReach = 1;
   for (const r of active) independenceReach *= (1 - r);
   independenceReach = 1 - independenceReach;
 
-  // Correlation correction
-  const avgReach = active.reduce((a, b) => a + b, 0) / n;
-  const overlapCorrection = RHO_BAR * ((n - 1) / 2) * Math.pow(avgReach, 2) * 1.85;
+  // Perfect correlation model: reach = max of any single channel
+  const maxReach = Math.max(...active);
 
-  return Math.min(Math.max(independenceReach - overlapCorrection, 0), 0.95);
+  // Blend using average cross-channel correlation (RHO_BAR)
+  // At rho=0 → independence (highest reach), at rho=1 → max single channel
+  const blended = independenceReach * (1 - RHO_BAR) + maxReach * RHO_BAR;
+
+  return Math.min(Math.max(blended, 0), 0.95);
 }
 
 // ─── 3. Confidence interval on deduplicated reach ────────────────────────────
