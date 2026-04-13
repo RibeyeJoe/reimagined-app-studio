@@ -112,52 +112,95 @@ function generateFallbackPlans(state: any): PlanOption[] {
     });
   };
 
-  const plans: PlanOption[] = [
-    {
-      name: "Conservative", summary: "Focus on proven channels with lower risk",
-      bestFor: "Clients wanting to test digital with minimal risk",
-      goal, kpis: goals.kpis || [], geoSummary: geo.geoValue || "TBD",
-      audienceSummary: `${audiences.audiences.length} audience segments`,
-      allocations: makeAllocs(0.8), expectedRanges: [
-        { metric: "Impressions", low: 50000, high: 100000, unit: "", confidence: "High" },
-        { metric: "Clicks", low: 500, high: 1500, unit: "", confidence: "Medium" },
-        { metric: "Reach", low: 30000, high: 60000, unit: "", confidence: "Medium" },
-      ],
-      confidence: "High", rationale: ["Focuses spend on highest-performing channels", "Lower risk, proven approach"],
-      requirements: [{ label: "Landing page", met: true }, { label: "Creative assets", met: false }],
-      totalBudget: Math.round(budget * 0.8),
-    },
-    {
-      name: "Balanced", summary: "Optimal mix of performance and reach",
-      bestFor: "Most clients — best balance of results and coverage",
-      goal, kpis: goals.kpis || [], geoSummary: geo.geoValue || "TBD",
-      audienceSummary: `${audiences.audiences.length} audience segments`,
-      allocations: makeAllocs(1), expectedRanges: [
-        { metric: "Impressions", low: 100000, high: 200000, unit: "", confidence: "High" },
-        { metric: "Clicks", low: 1000, high: 3000, unit: "", confidence: "Medium" },
-        { metric: "Reach", low: 60000, high: 120000, unit: "", confidence: "Medium" },
-      ],
-      confidence: "High", rationale: ["Balanced approach across funnel stages", "Good mix of brand and performance"],
-      requirements: [{ label: "Landing page", met: true }, { label: "Creative assets", met: false }],
-      totalBudget: budget,
-    },
-    {
-      name: "Aggressive", summary: "Maximum reach and share of voice",
-      bestFor: "Clients wanting to dominate their market",
-      goal, kpis: goals.kpis || [], geoSummary: geo.geoValue || "TBD",
-      audienceSummary: `${audiences.audiences.length} audience segments`,
-      allocations: makeAllocs(1.2), expectedRanges: [
-        { metric: "Impressions", low: 200000, high: 400000, unit: "", confidence: "Medium" },
-        { metric: "Clicks", low: 2000, high: 5000, unit: "", confidence: "Medium" },
-        { metric: "Reach", low: 120000, high: 240000, unit: "", confidence: "Low" },
-      ],
-      confidence: "Medium", rationale: ["Maximum market coverage", "Aggressive share of voice strategy"],
-      requirements: [{ label: "Landing page", met: true }, { label: "Creative assets", met: false }],
-      totalBudget: Math.round(budget * 1.2),
-    },
-  ];
+  const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
+  const hasAnalyzedUrl = intake.analyzed;
+  const isExistingClient = state.planningPath === "existing";
 
-  return plans.map(p => ({ ...p, shareOfVoice: generateSOV(p.allocations, p.totalBudget, state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National", null) }));
+  const buildPlan = (name: "Conservative" | "Balanced" | "Aggressive", multiplier: number, conf: ConfidenceLevel): PlanOption => {
+    const allocs = makeAllocs(multiplier);
+    const totalBudget = Math.round(budget * multiplier);
+    const calc = calculatePlan(allocs, "Adults 25-54", geoParam, null, CUSTOM_CPMS);
+    const enabled = allocs.filter(a => a.enabled && a.budget > 0);
+
+    // Compute clicks from CTR benchmarks
+    let totalClicks = 0;
+    for (const a of enabled) {
+      const cpm = CUSTOM_CPMS[a.channel] ?? DEFAULT_CPMS[a.channel] ?? 15;
+      const imps = Math.round((a.budget / cpm) * 1000);
+      totalClicks += Math.round(imps * (CHANNEL_CTR[a.channel] ?? 0));
+    }
+
+    // Expected ranges
+    const expectedRanges: ExpectedRange[] = [
+      { metric: "Impressions", low: Math.round(calc.totalImpressions * 0.85), high: Math.round(calc.totalImpressions * 1.15), unit: "", confidence: "High" },
+      { metric: "Reach", low: Math.round(calc.totalReach * 0.88), high: Math.round(calc.totalReach * 1.12), unit: "", confidence: "Medium" },
+      { metric: "Clicks", low: Math.round(totalClicks * 0.80), high: Math.round(totalClicks * 1.20), unit: "", confidence: "Medium" },
+      { metric: "Frequency", low: +(calc.avgFrequency * 0.90).toFixed(1), high: +(calc.avgFrequency * 1.10).toFixed(1), unit: "x", confidence: "High" },
+    ];
+
+    // CPL for Leads goal
+    if (goal === "Leads" && totalClicks > 0) {
+      let totalConversions = 0;
+      for (const a of enabled) {
+        const cpm = CUSTOM_CPMS[a.channel] ?? DEFAULT_CPMS[a.channel] ?? 15;
+        const imps = Math.round((a.budget / cpm) * 1000);
+        const clicks = Math.round(imps * (CHANNEL_CTR[a.channel] ?? 0));
+        totalConversions += Math.round(clicks * (CHANNEL_CONV_RATE[a.channel] ?? 0.005));
+      }
+      if (totalConversions > 0) {
+        const cpl = totalBudget / totalConversions;
+        expectedRanges.push({ metric: "Est. CPL", low: Math.round(cpl * 0.85), high: Math.round(cpl * 1.25), unit: "$", confidence: "Medium" });
+      }
+    }
+
+    // Dynamic rationale
+    const sortedByBudget = [...enabled].sort((a, b) => b.budget - a.budget);
+    const topChannels = sortedByBudget.slice(0, 3);
+    const rationale: string[] = [];
+    if (topChannels.length > 0) {
+      const topStr = topChannels.map(c => `${c.channel} (${c.percentage}%, $${c.budget.toLocaleString()})`).join(", ");
+      rationale.push(`Top allocations: ${topStr}`);
+    }
+    rationale.push(`Projected to reach ~${fmt(calc.totalReach)} unique people at ${calc.avgFrequency}x average frequency`);
+    if (isExistingClient) {
+      rationale.push("Channel mix informed by historical campaign performance");
+    }
+    if (name === "Conservative") rationale.push("Lower spend reduces risk while maintaining core channel presence");
+    if (name === "Aggressive") rationale.push("Higher budget maximizes share of voice and market coverage");
+
+    // Dynamic requirements
+    const requirements: Requirement[] = [];
+    const hasSearch = enabled.some(a => a.channel === "Search");
+    const hasVideo = enabled.some(a => ["Display", "OLV", "CTV", "Netflix"].includes(a.channel));
+    const hasSocial = enabled.some(a => a.channel === "Social");
+    const hasBroadcast = enabled.some(a => ["Linear", "Radio"].includes(a.channel));
+    const hasDigital = enabled.some(a => !["Linear", "Radio", "OOH", "DOOH"].includes(a.channel));
+
+    if (hasSearch) requirements.push({ label: "Landing page with conversion tracking", met: hasAnalyzedUrl });
+    if (hasVideo) requirements.push({ label: "Creative assets (video/banner)", met: false });
+    if (hasSocial) requirements.push({ label: "Social media accounts linked", met: false });
+    if (hasBroadcast) requirements.push({ label: "Media rep coordination", met: false });
+    if (hasDigital) requirements.push({ label: "Google Analytics / Tag Manager access", met: false });
+    if (goal === "Leads") requirements.push({ label: "Call tracking number provisioned", met: false });
+    if (requirements.length === 0) requirements.push({ label: "No additional setup required", met: true });
+
+    return {
+      name, summary: name === "Conservative" ? "Focus on proven channels with lower risk" :
+        name === "Balanced" ? "Optimal mix of performance and reach" : "Maximum reach and share of voice",
+      bestFor: name === "Conservative" ? "Clients wanting to test digital with minimal risk" :
+        name === "Balanced" ? "Most clients — best balance of results and coverage" : "Clients wanting to dominate their market",
+      goal, kpis: goals.kpis || [], geoSummary: geo.geoValue || "TBD",
+      audienceSummary: `${audiences.audiences.length} audience segments`,
+      allocations: allocs, expectedRanges, confidence: conf, rationale, requirements, totalBudget,
+      shareOfVoice: generateSOV(allocs, totalBudget, geoParam, null),
+    };
+  };
+
+  return [
+    buildPlan("Conservative", 0.8, "High"),
+    buildPlan("Balanced", 1, "High"),
+    buildPlan("Aggressive", 1.2, "Medium"),
+  ];
 }
 
 function parseDMAs(geoValue: string): string | string[] {
