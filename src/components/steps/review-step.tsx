@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance } from "@/lib/schema";
+import { calculatePlan, channelMetrics, DEFAULT_CPMS } from "@/lib/calculations";
 import { CHANNELS } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
 import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
