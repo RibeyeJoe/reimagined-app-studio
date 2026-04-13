@@ -39,6 +39,7 @@ const App = () => (
                   <Route path="/media-channels" element={<MediaChannelsPage />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/templates" element={<TemplatesPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </div>
