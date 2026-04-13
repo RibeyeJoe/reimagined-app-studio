@@ -136,6 +136,15 @@ export function ChannelsStep() {
         <p className="text-sm text-muted-foreground mt-1">Select channels and adjust budget allocation. Configure dayparts for Linear/Radio and verticals for OOH/DOOH.</p>
       </div>
 
+      {isConstrainedMode && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <Lock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            <strong>Improve mode:</strong> Only channels from historical campaigns are active. Switch to "Expand channel mix" in the Goals step to add new channels.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-3">
           <Badge variant="secondary" className="font-semibold">{enabledCount} active</Badge>
