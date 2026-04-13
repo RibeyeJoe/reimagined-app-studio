@@ -3,14 +3,16 @@ import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { GOALS, type Goal } from "@/lib/schema";
+import { GOALS, type Goal, type ChannelMixMode } from "@/lib/schema";
 import { GOAL_KPI_MAP } from "@/lib/benchmarks";
 import { AdvertiserInsightsPanel } from "@/components/advertiser-insights-panel";
 import type { AdvertiserInsights } from "@/lib/performance-utils";
 import {
   Target, Eye, MousePointerClick, UserCheck, Footprints, Swords,
-  Sparkles, X, ArrowLeft, ArrowRight,
+  Sparkles, X, ArrowLeft, ArrowRight, Info,
 } from "lucide-react";
 
 const GOAL_ICONS: Record<Goal, typeof Eye> = {
