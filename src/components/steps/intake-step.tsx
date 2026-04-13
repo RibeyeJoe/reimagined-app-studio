@@ -16,6 +16,7 @@ import {
 import type { CTAType, PlanningPath } from "@/lib/schema";
 import { FLIGHTING_PRESETS } from "@/lib/schema";
 import { supabase } from "@/integrations/supabase/client";
+import { expandHistoricalChannels, mapHistoricalInsightsToPerformance } from "@/lib/channel-mapping";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -143,6 +144,8 @@ export function IntakeStep() {
         performanceAdvertiserName: null,
         performanceDMAs: [],
         performanceZIPs: [],
+        performanceChannels: [],
+        historicalData: [],
       }));
       return;
     }
@@ -182,6 +185,8 @@ export function IntakeStep() {
           performanceAdvertiserName: null,
           performanceDMAs: [],
           performanceZIPs: [],
+            performanceChannels: [],
+            historicalData: [],
         }));
         return;
       }
@@ -212,13 +217,18 @@ export function IntakeStep() {
           performanceAdvertiserName: null,
           performanceDMAs: [],
           performanceZIPs: [],
+            performanceChannels: [],
+            historicalData: [],
         }));
         return;
       }
 
-      const channels = (insights.channels || []).map((channel: { channel: string }) => channel.channel);
+      const channels = expandHistoricalChannels(
+        (insights.channels || []).map((channel: { channel: string }) => channel.channel)
+      );
       const dmas = (insights.topDMAs || []).map((row: { dma: string }) => row.dma).filter(Boolean);
       const zips = (insights.topZIPs || []).map((row: { zip: string }) => row.zip).filter(Boolean);
+      const historicalData = mapHistoricalInsightsToPerformance(insights.channels || []);
 
       setLookup({
         status: "found",
@@ -236,10 +246,22 @@ export function IntakeStep() {
         performanceDMAs: dmas,
         performanceZIPs: zips,
         performanceChannels: channels,
+        historicalData,
       }));
     } catch (err) {
       console.error("Historical lookup error:", err);
       setLookup({ status: "not_found" });
+      setState((prev: any) => ({
+        ...prev,
+        performanceUploaded: false,
+        performanceAdvertisers: [],
+        performanceAdvertiserCode: null,
+        performanceAdvertiserName: null,
+        performanceDMAs: [],
+        performanceZIPs: [],
+        performanceChannels: [],
+        historicalData: [],
+      }));
     }
   }, [setState]);
 

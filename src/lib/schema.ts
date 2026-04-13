@@ -165,6 +165,7 @@ export interface HistoricalPerformance {
   channel: Channel;
   period: string;
   impressions: number;
+  reach: number;
   clicks: number;
   conversions: number;
   spend: number;
