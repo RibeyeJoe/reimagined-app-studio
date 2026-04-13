@@ -109,7 +109,92 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      report_advertisers_list: {
+        Args: never
+        Returns: {
+          code: string
+          name: string
+        }[]
+      }
+      report_by_advertiser: {
+        Args: {
+          p_advertiser?: string
+          p_channel?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_goal?: string
+        }
+        Returns: {
+          advertiser_code: string
+          advertiser_name: string
+          channel_count: number
+          dma_count: number
+          impressions: number
+          reach: number
+          row_count: number
+        }[]
+      }
+      report_by_channel: {
+        Args: {
+          p_advertiser?: string
+          p_channel?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_goal?: string
+        }
+        Returns: {
+          channel: string
+          impressions: number
+          reach: number
+          row_count: number
+        }[]
+      }
+      report_by_dma: {
+        Args: {
+          p_advertiser?: string
+          p_channel?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_goal?: string
+        }
+        Returns: {
+          dma: string
+          impressions: number
+          reach: number
+          row_count: number
+        }[]
+      }
+      report_channels_list: {
+        Args: never
+        Returns: {
+          channel: string
+        }[]
+      }
+      report_goals_list: {
+        Args: never
+        Returns: {
+          goal: string
+        }[]
+      }
+      report_summary: {
+        Args: {
+          p_advertiser?: string
+          p_channel?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_goal?: string
+        }
+        Returns: {
+          avg_frequency: number
+          avg_vcr: number
+          total_impressions: number
+          total_reach: number
+          total_rows: number
+          unique_advertisers: number
+          unique_channels: number
+          unique_dmas: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
