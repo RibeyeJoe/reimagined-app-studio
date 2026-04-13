@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance } from "@/lib/schema";
 import { calculatePlan, channelMetrics, getUniverse, DEFAULT_CPMS } from "@/lib/calculations";
+import { CHANNEL_CTR, CHANNEL_CONV_RATE } from "@/lib/channel-ctr";
+import { DEFAULT_CONFIGS, getConfigCPM } from "@/lib/media-channel-defaults";
 import { CHANNELS } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
 import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
