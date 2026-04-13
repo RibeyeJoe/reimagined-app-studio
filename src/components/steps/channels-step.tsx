@@ -39,6 +39,9 @@ const CHANNELS_WITH_OOH: Channel[] = ["DOOH", "OOH"];
 export function ChannelsStep() {
   const { state, updateChannels, setStep } = usePlanner();
   const { channels, intake, goals } = state;
+  const channelMixMode = goals.channelMixMode || "expand";
+  const performanceChannels: string[] = (state as any).performanceChannels || [];
+  const isConstrainedMode = channelMixMode === "improve" && performanceChannels.length > 0;
   const budget = intake.monthlyBudget || 5000;
   const hasServices = (intake.detected?.services?.length || 0) > 0;
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
@@ -133,6 +136,15 @@ export function ChannelsStep() {
         <p className="text-sm text-muted-foreground mt-1">Select channels and adjust budget allocation. Configure dayparts for Linear/Radio and verticals for OOH/DOOH.</p>
       </div>
 
+      {isConstrainedMode && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <Lock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            <strong>Improve mode:</strong> Only channels from historical campaigns are active. Switch to "Expand channel mix" in the Goals step to add new channels.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-3">
           <Badge variant="secondary" className="font-semibold">{enabledCount} active</Badge>
@@ -180,8 +192,16 @@ export function ChannelsStep() {
                 const hint = getChannelHint(alloc.channel as Channel, budget, hasServices);
                 const isExpanded = expandedChannel === alloc.channel;
                 const showExtra = alloc.enabled && hasExtraConfig(alloc.channel);
+                const isHistorical = performanceChannels.some(
+                  pc => pc.toLowerCase() === alloc.channel.toLowerCase()
+                );
+                const isBlocked = isConstrainedMode && !isHistorical;
                 return (
-                  <Card key={alloc.channel} className={cn("p-4 transition-all card-elevated", !alloc.enabled && "opacity-50")}>
+                  <Card key={alloc.channel} className={cn(
+                    "p-4 transition-all card-elevated",
+                    !alloc.enabled && "opacity-50",
+                    isBlocked && "opacity-30 pointer-events-none"
+                  )}>
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div className="flex items-center gap-2">
                         <div className={cn(
@@ -192,10 +212,11 @@ export function ChannelsStep() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold">{alloc.channel}</p>
-                          {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
+                          {isBlocked && <p className="text-[10px] text-muted-foreground italic">Not in historical data</p>}
+                          {!isBlocked && hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
                         </div>
                       </div>
-                      <Switch checked={alloc.enabled} onCheckedChange={() => toggleChannel(alloc.channel as Channel)} />
+                      <Switch checked={alloc.enabled} onCheckedChange={() => toggleChannel(alloc.channel as Channel)} disabled={isBlocked} />
                     </div>
                     {alloc.enabled && (
                       <div className="space-y-2">

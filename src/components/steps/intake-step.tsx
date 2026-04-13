@@ -13,9 +13,17 @@ import {
   Globe, Sparkles, X, Building2, MapPin, DollarSign,
   ArrowRight, Loader2, CalendarIcon, Clock, Database, CheckCircle2, AlertCircle,
 } from "lucide-react";
-import type { CTAType } from "@/lib/schema";
+import type { CTAType, PlanningPath } from "@/lib/schema";
 import { FLIGHTING_PRESETS } from "@/lib/schema";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+
+interface AdvertiserOption {
+  code: string;
+  name: string;
+}
 
 interface HistoricalLookup {
   status: "idle" | "searching" | "found" | "not_found";
@@ -69,8 +77,56 @@ const scoreAdvertiserMatch = (
 export function IntakeStep() {
   const { state, updateIntake, setStep, setState } = usePlanner();
   const { intake } = state;
+  const planningPath = (state as any).planningPath || "new";
   const [analyzing, setAnalyzing] = useState(false);
   const [lookup, setLookup] = useState<HistoricalLookup>({ status: "idle" });
+  const [advertiserList, setAdvertiserList] = useState<AdvertiserOption[]>([]);
+  const [advertiserListLoading, setAdvertiserListLoading] = useState(false);
+
+  // Load all unique advertisers when "existing" path is selected
+  useEffect(() => {
+    if (planningPath !== "existing" || advertiserList.length > 0) return;
+    setAdvertiserListLoading(true);
+    supabase
+      .from("campaign_performance")
+      .select("advertiser_code, advertiser_name")
+      .limit(1000)
+      .then(({ data }) => {
+        const unique = Array.from(
+          new Map(
+            (data || []).map(r => [r.advertiser_code, { code: r.advertiser_code, name: r.advertiser_name || r.advertiser_code }])
+          ).values()
+        ).sort((a, b) => a.name.localeCompare(b.name));
+        setAdvertiserList(unique);
+        setAdvertiserListLoading(false);
+      });
+  }, [planningPath]);
+
+  const setPlanningPath = (path: PlanningPath) => {
+    if (path === "new") {
+      setState((prev: any) => ({
+        ...prev,
+        planningPath: "new",
+        performanceUploaded: false,
+        performanceAdvertisers: [],
+        performanceAdvertiserCode: null,
+        performanceAdvertiserName: null,
+        performanceDMAs: [],
+        performanceZIPs: [],
+        performanceChannels: [],
+      }));
+      setLookup({ status: "idle" });
+    } else {
+      setState((prev: any) => ({ ...prev, planningPath: "existing" }));
+    }
+  };
+
+  const selectAdvertiser = (code: string) => {
+    const adv = advertiserList.find(a => a.code === code);
+    if (adv) {
+      updateIntake({ businessName: adv.name });
+    }
+  };
 
   // Auto-lookup historical data when business name changes
   const lookupHistoricalData = useCallback(async (name: string) => {
@@ -178,6 +234,7 @@ export function IntakeStep() {
         performanceAdvertiserName: matchedAdvertiser.advertiser_name || matchedAdvertiser.advertiser_code,
         performanceDMAs: dmas,
         performanceZIPs: zips,
+        performanceChannels: channels,
       }));
     } catch (err) {
       console.error("Historical lookup error:", err);
@@ -284,9 +341,64 @@ export function IntakeStep() {
       <div>
         <h2 className="text-2xl font-display font-bold text-foreground">Client Intake</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Start by entering your client's information. We'll analyze their website to auto-detect their business.
+          Start by choosing whether this is a new or existing client, then fill in their details.
         </p>
       </div>
+
+      {/* Planning Path Selector */}
+      <Card className="p-5 space-y-4 card-elevated">
+        <Label className="text-sm font-display font-semibold">Planning Path</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setPlanningPath("new")}
+            className={cn(
+              "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all text-center",
+              planningPath === "new"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/30"
+            )}
+          >
+            <Sparkles className="w-6 h-6 text-primary" />
+            <span className="text-sm font-semibold">New Client</span>
+            <span className="text-[11px] text-muted-foreground leading-tight">
+              Start fresh with manual inputs and benchmark data
+            </span>
+          </button>
+          <button
+            onClick={() => setPlanningPath("existing")}
+            className={cn(
+              "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all text-center",
+              planningPath === "existing"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/30"
+            )}
+          >
+            <Database className="w-6 h-6 text-primary" />
+            <span className="text-sm font-semibold">Existing Client</span>
+            <span className="text-[11px] text-muted-foreground leading-tight">
+              Pull in historical data to optimize performance
+            </span>
+          </button>
+        </div>
+
+        {planningPath === "existing" && (
+          <div className="space-y-2 animate-fade-in">
+            <Label className="text-xs font-medium">Select Advertiser</Label>
+            <Select onValueChange={selectAdvertiser}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={advertiserListLoading ? "Loading advertisers…" : "Choose an advertiser"} />
+              </SelectTrigger>
+              <SelectContent>
+                {advertiserList.map(adv => (
+                  <SelectItem key={adv.code} value={adv.code}>
+                    {adv.name} ({adv.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </Card>
 
       <Card className="p-6 space-y-5 card-elevated">
         <div className="space-y-4">
