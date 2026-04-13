@@ -39,6 +39,9 @@ const CHANNELS_WITH_OOH: Channel[] = ["DOOH", "OOH"];
 export function ChannelsStep() {
   const { state, updateChannels, setStep } = usePlanner();
   const { channels, intake, goals } = state;
+  const channelMixMode = goals.channelMixMode || "expand";
+  const performanceChannels: string[] = (state as any).performanceChannels || [];
+  const isConstrainedMode = channelMixMode === "improve" && performanceChannels.length > 0;
   const budget = intake.monthlyBudget || 5000;
   const hasServices = (intake.detected?.services?.length || 0) > 0;
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
