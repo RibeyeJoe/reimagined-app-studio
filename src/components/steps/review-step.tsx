@@ -61,7 +61,7 @@ function estimateMetrics(alloc: ChannelAllocation, universeK: number) {
 
 function generateSOV(allocs: ChannelAllocation[], _budget: number, geo?: string | string[] | null, audience?: string | null): ShareOfVoice[] {
   const enabled = allocs.filter(a => a.enabled && a.budget > 0);
-  const plan = calculatePlan(allocs, "Adults 25-54", geo, audience);
+  const plan = calculatePlan(allocs, "Adults 25-54", geo, audience, CUSTOM_CPMS);
   const sovMap = new Map(plan.shareOfVoice.map(s => [s.name, s]));
 
   return enabled.map(a => {
