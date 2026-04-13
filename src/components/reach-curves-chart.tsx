@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { ChannelAllocation } from "@/lib/schema";
-import { channelReach, deduplicatedReach, REACH_PARAMS } from "@/lib/calculations";
+import { channelReach, deduplicatedReach, REACH_PARAMS, DEFAULT_CPMS } from "@/lib/calculations";
 
 const COLORS = [
   "hsl(var(--primary))", "#ef4444", "#f59e0b", "#10b981", "#6366f1",
