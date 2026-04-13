@@ -357,7 +357,16 @@ export function ReviewStep() {
                 <SummaryCard icon={Shield} label="Confidence" value={activePlan.confidence} badge />
               </div>
 
-              {/* Flight Timeline */}
+              {/* Universe Label */}
+              {planCalc && (
+                <div className="flex items-center gap-3 px-1 text-xs text-muted-foreground">
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  <span>Universe: <span className="font-semibold text-foreground">{planCalc.universeLabel}</span></span>
+                  <span className="text-muted-foreground">·</span>
+                  <span>{planCalc.totalDedupReachPct}% reach · ~{fmt(planCalc.totalDedupReachPersons)} people</span>
+                </div>
+              )}
+
               {(flightStart || flightEnd) && (
                 <Card className="p-4 card-elevated">
                   <div className="flex items-center gap-2 mb-3">
