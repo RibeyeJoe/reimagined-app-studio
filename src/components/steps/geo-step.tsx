@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -34,8 +34,12 @@ export function GeoStep() {
   const [newLoc, setNewLoc] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const [showAllLocations, setShowAllLocations] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const locations = parseLocations(geo.geoValue);
+  const VISIBLE_LIMIT = 20;
+  const visibleLocations = showAllLocations ? locations : locations.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = locations.length - VISIBLE_LIMIT;
   const isLowBudget = (geo.geoType === "DMA" && budget < 10000) || (geo.geoType === "Congressional District" && budget < 2500);
 
   // Auto-populate geo from historical DMA or ZIP data if geo is empty
@@ -150,20 +154,41 @@ export function GeoStep() {
             {locations.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-xs text-muted-foreground">{locations.length} location{locations.length !== 1 ? "s" : ""} added</p>
-                  {locations.length > 10 && (
-                    <Button size="sm" variant="ghost" className="text-xs h-6 text-destructive" onClick={() => updateGeo({ geoValue: "" })}>
-                      Clear All
-                    </Button>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    <strong>{locations.length}</strong> location{locations.length !== 1 ? "s" : ""} added
+                    {!showAllLocations && hiddenCount > 0 && <span> · showing first {VISIBLE_LIMIT}</span>}
+                  </p>
+                  <div className="flex gap-2">
+                    {locations.length > VISIBLE_LIMIT && (
+                      <Button size="sm" variant="ghost" className="text-xs h-6" onClick={() => setShowAllLocations(!showAllLocations)}>
+                        {showAllLocations ? "Collapse" : `Show all ${locations.length}`}
+                      </Button>
+                    )}
+                    {locations.length > 5 && (
+                      <Button size="sm" variant="ghost" className="text-xs h-6 text-destructive" onClick={() => updateGeo({ geoValue: "" })}>
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-1.5 flex-wrap max-h-40 overflow-y-auto">
-                  {locations.map((loc, idx) => (
+                <div className={cn(
+                  "flex gap-1.5 flex-wrap overflow-y-auto border rounded-lg p-2 bg-muted/20",
+                  showAllLocations ? "max-h-80" : "max-h-32"
+                )}>
+                  {visibleLocations.map((loc, idx) => (
                     <Badge key={idx} variant="secondary" className="flex items-center gap-1 text-xs py-1 px-2">
-                      <MapPin className="w-3 h-3" /> {loc}
+                      {loc}
                       <button onClick={() => removeLocation(idx)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button>
                     </Badge>
                   ))}
+                  {!showAllLocations && hiddenCount > 0 && (
+                    <button
+                      onClick={() => setShowAllLocations(true)}
+                      className="text-xs text-primary font-medium hover:underline px-2 py-1"
+                    >
+                      +{hiddenCount} more…
+                    </button>
+                  )}
                 </div>
               </div>
             )}
