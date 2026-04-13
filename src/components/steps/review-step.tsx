@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance } from "@/lib/schema";
+import { calculatePlan, channelMetrics, DEFAULT_CPMS } from "@/lib/calculations";
 import { CHANNELS } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
 import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
@@ -37,29 +38,25 @@ const PLAN_META: Record<string, { icon: typeof Shield; label: string; color: str
   Aggressive: { icon: Zap, label: "Share-of-voice", color: "text-amber-600" },
 };
 
-/* ── CPM benchmarks per channel for estimate calculations ── */
-const CPM_ESTIMATES: Record<string, number> = {
-  Search: 35, Social: 12, Display: 8, OLV: 22, CTV: 30,
-  "YouTube/YouTubeTV": 20, "Amazon/Prime Video/Twitch": 25,
-  Linear: 18, Radio: 10, Audio: 15, DOOH: 14, OOH: 6,
-  Email: 5, Netflix: 35,
-};
+/* ── CPM benchmarks now come from calculations.ts ── */
 
 function estimateMetrics(alloc: ChannelAllocation) {
-  const cpm = CPM_ESTIMATES[alloc.channel] || 15;
-  const impressions = Math.round((alloc.budget / cpm) * 1000);
-  const reach = Math.round(impressions * 0.6);
-  const frequency = reach > 0 ? +(impressions / reach).toFixed(1) : 0;
-  return { impressions, reach, frequency, cpm };
+  const m = channelMetrics(alloc.channel, alloc.budget, 98000); // Adults 25-54 universe
+  return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm };
 }
 
-function generateSOV(allocs: ChannelAllocation[], budget: number): ShareOfVoice[] {
-  return allocs.filter(a => a.enabled).map(a => {
-    const marketAvg = Math.round(Math.random() * 15 + 5);
-    const estSOV = Math.round((a.budget / (budget * 3)) * 100 * (1 + Math.random() * 0.5));
+function generateSOV(allocs: ChannelAllocation[], _budget: number): ShareOfVoice[] {
+  const enabled = allocs.filter(a => a.enabled && a.budget > 0);
+  const plan = calculatePlan(allocs);
+  const sovMap = new Map(plan.shareOfVoice.map(s => [s.name, s]));
+
+  return enabled.map(a => {
+    const sov = sovMap.get(a.channel);
+    const estSOV = sov?.sov ?? 0;
+    const marketAvg = Math.round(100 / Math.max(enabled.length, 1)); // equal-split baseline
     return {
       channel: a.channel as any,
-      estimatedSOV: Math.min(estSOV, 100),
+      estimatedSOV: estSOV,
       marketAverage: marketAvg,
       competitive: estSOV > marketAvg * 1.2 ? "Leading" as const : estSOV > marketAvg * 0.8 ? "Competitive" as const : "Below Average" as const,
     };
@@ -195,15 +192,14 @@ export function ReviewStep() {
   };
   const enabledChannels = activePlan?.allocations.filter(a => a.enabled) || [];
 
-  /* ── totals ── */
-  const totals = enabledChannels.reduce((acc, a) => {
-    const m = estimateMetrics(a);
-    acc.impressions += m.impressions;
-    acc.reach += m.reach;
-    acc.budget += a.budget;
-    return acc;
-  }, { impressions: 0, reach: 0, budget: 0 });
-  const avgFrequency = totals.reach > 0 ? +(totals.impressions / totals.reach).toFixed(1) : 0;
+  /* ── totals via calculation engine ── */
+  const planCalc = activePlan ? calculatePlan(activePlan.allocations) : null;
+  const totals = {
+    impressions: planCalc?.totalImpressions ?? 0,
+    reach: planCalc?.totalReach ?? 0,
+    budget: enabledChannels.reduce((s, a) => s + a.budget, 0),
+  };
+  const avgFreq = planCalc?.avgFrequency ?? 0;
 
   /* ── generate narrative ── */
   const generateNarrative = async () => {
@@ -349,7 +345,7 @@ export function ReviewStep() {
                 <SummaryCard icon={Activity} label="Total Budget" value={`$${fmt(activePlan.totalBudget)}`} />
                 <SummaryCard icon={Eye} label="Est. Impressions" value={fmt(totals.impressions)} />
                 <SummaryCard icon={Users} label="Est. Reach" value={fmt(totals.reach)} />
-                <SummaryCard icon={TrendingUp} label="Avg Frequency" value={String(avgFrequency)} />
+                <SummaryCard icon={TrendingUp} label="Avg Frequency" value={String(avgFreq)} />
                 <SummaryCard icon={Shield} label="Confidence" value={activePlan.confidence} badge />
               </div>
 
@@ -448,7 +444,7 @@ export function ReviewStep() {
                             <TableCell className="text-right">100%</TableCell>
                             <TableCell className="text-right">{fmt(totals.impressions)}</TableCell>
                             <TableCell className="text-right">{fmt(totals.reach)}</TableCell>
-                            <TableCell className="text-right">{avgFrequency}x</TableCell>
+                            <TableCell className="text-right">{avgFreq}x</TableCell>
                             <TableCell className="text-right">—</TableCell>
                             <TableCell />
                           </TableRow>
