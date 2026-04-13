@@ -42,9 +42,21 @@ const PLAN_META: Record<string, { icon: typeof Shield; label: string; color: str
 
 /* ── CPM benchmarks now come from calculations.ts ── */
 
+function buildCustomCpms(): Record<string, number> {
+  const cpms: Record<string, number> = {};
+  for (const ch of CHANNELS) {
+    const configCpm = getConfigCPM(DEFAULT_CONFIGS[ch]);
+    if (configCpm !== null) cpms[ch] = configCpm;
+  }
+  return cpms;
+}
+
+const CUSTOM_CPMS = buildCustomCpms();
+
 function estimateMetrics(alloc: ChannelAllocation, universeK: number) {
-  const m = channelMetrics(alloc.channel, alloc.budget, universeK);
-  return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm };
+  const cpm = CUSTOM_CPMS[alloc.channel];
+  const m = channelMetrics(alloc.channel, alloc.budget, universeK, cpm);
+  return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm, source: cpm ? "Rate Card" as const : "Benchmark" as const };
 }
 
 function generateSOV(allocs: ChannelAllocation[], _budget: number, geo?: string | string[] | null, audience?: string | null): ShareOfVoice[] {
