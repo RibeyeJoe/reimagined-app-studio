@@ -95,9 +95,13 @@ export interface IntakeState {
   flightEnd: string;
 }
 
+export type PlanningPath = "new" | "existing";
+export type ChannelMixMode = "improve" | "expand";
+
 export interface GoalsState {
   goal: Goal | null;
   kpis: string[];
+  channelMixMode: ChannelMixMode;
 }
 
 export interface GeoStrategy {
@@ -225,6 +229,7 @@ export interface BudgetRule {
 
 export interface PlannerState {
   currentStep: StepId;
+  planningPath: PlanningPath;
   intake: IntakeState;
   goals: GoalsState;
   geo: GeoState;
@@ -241,6 +246,7 @@ export interface PlannerState {
   performanceAdvertiserName: string | null;
   performanceDMAs: string[];
   performanceZIPs: string[];
+  performanceChannels: string[];
 }
 
 export interface SavedPlan {
