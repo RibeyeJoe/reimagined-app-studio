@@ -38,29 +38,25 @@ const PLAN_META: Record<string, { icon: typeof Shield; label: string; color: str
   Aggressive: { icon: Zap, label: "Share-of-voice", color: "text-amber-600" },
 };
 
-/* ── CPM benchmarks per channel for estimate calculations ── */
-const CPM_ESTIMATES: Record<string, number> = {
-  Search: 35, Social: 12, Display: 8, OLV: 22, CTV: 30,
-  "YouTube/YouTubeTV": 20, "Amazon/Prime Video/Twitch": 25,
-  Linear: 18, Radio: 10, Audio: 15, DOOH: 14, OOH: 6,
-  Email: 5, Netflix: 35,
-};
+/* ── CPM benchmarks now come from calculations.ts ── */
 
 function estimateMetrics(alloc: ChannelAllocation) {
-  const cpm = CPM_ESTIMATES[alloc.channel] || 15;
-  const impressions = Math.round((alloc.budget / cpm) * 1000);
-  const reach = Math.round(impressions * 0.6);
-  const frequency = reach > 0 ? +(impressions / reach).toFixed(1) : 0;
-  return { impressions, reach, frequency, cpm };
+  const m = channelMetrics(alloc.channel, alloc.budget, 98000); // Adults 25-54 universe
+  return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm };
 }
 
-function generateSOV(allocs: ChannelAllocation[], budget: number): ShareOfVoice[] {
-  return allocs.filter(a => a.enabled).map(a => {
-    const marketAvg = Math.round(Math.random() * 15 + 5);
-    const estSOV = Math.round((a.budget / (budget * 3)) * 100 * (1 + Math.random() * 0.5));
+function generateSOV(allocs: ChannelAllocation[], _budget: number): ShareOfVoice[] {
+  const enabled = allocs.filter(a => a.enabled && a.budget > 0);
+  const plan = calculatePlan(allocs);
+  const sovMap = new Map(plan.shareOfVoice.map(s => [s.name, s]));
+
+  return enabled.map(a => {
+    const sov = sovMap.get(a.channel);
+    const estSOV = sov?.sov ?? 0;
+    const marketAvg = Math.round(100 / Math.max(enabled.length, 1)); // equal-split baseline
     return {
       channel: a.channel as any,
-      estimatedSOV: Math.min(estSOV, 100),
+      estimatedSOV: estSOV,
       marketAverage: marketAvg,
       competitive: estSOV > marketAvg * 1.2 ? "Leading" as const : estSOV > marketAvg * 0.8 ? "Competitive" as const : "Below Average" as const,
     };
