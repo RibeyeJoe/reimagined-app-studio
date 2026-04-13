@@ -77,8 +77,56 @@ const scoreAdvertiserMatch = (
 export function IntakeStep() {
   const { state, updateIntake, setStep, setState } = usePlanner();
   const { intake } = state;
+  const planningPath = (state as any).planningPath || "new";
   const [analyzing, setAnalyzing] = useState(false);
   const [lookup, setLookup] = useState<HistoricalLookup>({ status: "idle" });
+  const [advertiserList, setAdvertiserList] = useState<AdvertiserOption[]>([]);
+  const [advertiserListLoading, setAdvertiserListLoading] = useState(false);
+
+  // Load all unique advertisers when "existing" path is selected
+  useEffect(() => {
+    if (planningPath !== "existing" || advertiserList.length > 0) return;
+    setAdvertiserListLoading(true);
+    supabase
+      .from("campaign_performance")
+      .select("advertiser_code, advertiser_name")
+      .limit(1000)
+      .then(({ data }) => {
+        const unique = Array.from(
+          new Map(
+            (data || []).map(r => [r.advertiser_code, { code: r.advertiser_code, name: r.advertiser_name || r.advertiser_code }])
+          ).values()
+        ).sort((a, b) => a.name.localeCompare(b.name));
+        setAdvertiserList(unique);
+        setAdvertiserListLoading(false);
+      });
+  }, [planningPath]);
+
+  const setPlanningPath = (path: PlanningPath) => {
+    if (path === "new") {
+      setState((prev: any) => ({
+        ...prev,
+        planningPath: "new",
+        performanceUploaded: false,
+        performanceAdvertisers: [],
+        performanceAdvertiserCode: null,
+        performanceAdvertiserName: null,
+        performanceDMAs: [],
+        performanceZIPs: [],
+        performanceChannels: [],
+      }));
+      setLookup({ status: "idle" });
+    } else {
+      setState((prev: any) => ({ ...prev, planningPath: "existing" }));
+    }
+  };
+
+  const selectAdvertiser = (code: string) => {
+    const adv = advertiserList.find(a => a.code === code);
+    if (adv) {
+      updateIntake({ businessName: adv.name });
+    }
+  };
 
   // Auto-lookup historical data when business name changes
   const lookupHistoricalData = useCallback(async (name: string) => {
