@@ -345,7 +345,7 @@ export function ReviewStep() {
                 <SummaryCard icon={Activity} label="Total Budget" value={`$${fmt(activePlan.totalBudget)}`} />
                 <SummaryCard icon={Eye} label="Est. Impressions" value={fmt(totals.impressions)} />
                 <SummaryCard icon={Users} label="Est. Reach" value={fmt(totals.reach)} />
-                <SummaryCard icon={TrendingUp} label="Avg Frequency" value={String(avgFrequency)} />
+                <SummaryCard icon={TrendingUp} label="Avg Frequency" value={String(avgFreq)} />
                 <SummaryCard icon={Shield} label="Confidence" value={activePlan.confidence} badge />
               </div>
 
@@ -444,7 +444,7 @@ export function ReviewStep() {
                             <TableCell className="text-right">100%</TableCell>
                             <TableCell className="text-right">{fmt(totals.impressions)}</TableCell>
                             <TableCell className="text-right">{fmt(totals.reach)}</TableCell>
-                            <TableCell className="text-right">{avgFrequency}x</TableCell>
+                            <TableCell className="text-right">{avgFreq}x</TableCell>
                             <TableCell className="text-right">—</TableCell>
                             <TableCell />
                           </TableRow>
