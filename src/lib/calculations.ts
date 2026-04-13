@@ -168,13 +168,16 @@ export function channelMetrics(channelName: string, budget: number, universeThou
   const cpm = DEFAULT_CPMS[channelName] || 15;
   const impressions = Math.round((budget / cpm) * 1000);
   const reachFraction = channelReach(channelName, budget);
-  const reachCount = Math.round(reachFraction * universeThousands * 1000);
+  // Cap reach count: you can't reach more unique people than you have impressions
+  const modelReachCount = Math.round(reachFraction * universeThousands * 1000);
+  const reachCount = Math.min(modelReachCount, impressions);
+  const actualReachPct = reachCount / (universeThousands * 1000);
   const freq = reachCount > 0 ? +(impressions / reachCount).toFixed(1) : 0;
   const aw = ATTENTION_WEIGHTS[channelName] || 0.5;
   return {
     impressions,
     reach: reachCount,
-    reachPct: +(reachFraction * 100).toFixed(1),
+    reachPct: +(actualReachPct * 100).toFixed(2),
     frequency: freq,
     cpm,
     attentionWeight: aw,
