@@ -234,6 +234,7 @@ export function IntakeStep() {
         performanceAdvertiserName: matchedAdvertiser.advertiser_name || matchedAdvertiser.advertiser_code,
         performanceDMAs: dmas,
         performanceZIPs: zips,
+        performanceChannels: channels,
       }));
     } catch (err) {
       console.error("Historical lookup error:", err);
