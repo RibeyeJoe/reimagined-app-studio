@@ -40,6 +40,8 @@ const GOAL_KPI_LABELS: Record<Goal, string> = {
 export function GoalsStep() {
   const { state, updateGoals, setStep } = usePlanner();
   const { goals } = state;
+  const planningPath = (state as any).planningPath || "new";
+  const performanceChannels: string[] = (state as any).performanceChannels || [];
   const perfState = state as any;
   const advertiserCode: string | undefined = perfState.performanceAdvertiserCode || undefined;
   const hasPerformanceData = Boolean(perfState.performanceUploaded && advertiserCode);
@@ -168,6 +170,37 @@ export function GoalsStep() {
                 <button onClick={() => removeKpi(kpi)} className="ml-0.5"><X className="w-3 h-3" /></button>
               </Badge>
             ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Channel Mix Mode Toggle — only for existing clients */}
+      {goals.goal && planningPath === "existing" && hasPerformanceData && performanceChannels.length > 0 && (
+        <Card className="p-5 space-y-3 card-elevated animate-fade-in">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-display font-bold">Channel Strategy</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Historical campaigns used: {performanceChannels.slice(0, 6).join(", ")}
+            {performanceChannels.length > 6 && ` +${performanceChannels.length - 6} more`}
+          </p>
+          <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium cursor-pointer" htmlFor="channel-mix-mode">
+                {goals.channelMixMode === "improve" ? "Improve existing channel mix" : "Expand channel mix"}
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                {goals.channelMixMode === "improve"
+                  ? "Only optimize within channels already used historically"
+                  : "Allow recommendations for new channels alongside existing ones"}
+              </p>
+            </div>
+            <Switch
+              id="channel-mix-mode"
+              checked={goals.channelMixMode === "expand"}
+              onCheckedChange={(checked) => updateGoals({ channelMixMode: checked ? "expand" : "improve" })}
+            />
           </div>
         </Card>
       )}
