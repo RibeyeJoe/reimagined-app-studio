@@ -192,8 +192,16 @@ export function ChannelsStep() {
                 const hint = getChannelHint(alloc.channel as Channel, budget, hasServices);
                 const isExpanded = expandedChannel === alloc.channel;
                 const showExtra = alloc.enabled && hasExtraConfig(alloc.channel);
+                const isHistorical = performanceChannels.some(
+                  pc => pc.toLowerCase() === alloc.channel.toLowerCase()
+                );
+                const isBlocked = isConstrainedMode && !isHistorical;
                 return (
-                  <Card key={alloc.channel} className={cn("p-4 transition-all card-elevated", !alloc.enabled && "opacity-50")}>
+                  <Card key={alloc.channel} className={cn(
+                    "p-4 transition-all card-elevated",
+                    !alloc.enabled && "opacity-50",
+                    isBlocked && "opacity-30 pointer-events-none"
+                  )}>
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div className="flex items-center gap-2">
                         <div className={cn(
@@ -204,10 +212,11 @@ export function ChannelsStep() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold">{alloc.channel}</p>
-                          {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
+                          {isBlocked && <p className="text-[10px] text-muted-foreground italic">Not in historical data</p>}
+                          {!isBlocked && hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
                         </div>
                       </div>
-                      <Switch checked={alloc.enabled} onCheckedChange={() => toggleChannel(alloc.channel as Channel)} />
+                      <Switch checked={alloc.enabled} onCheckedChange={() => toggleChannel(alloc.channel as Channel)} disabled={isBlocked} />
                     </div>
                     {alloc.enabled && (
                       <div className="space-y-2">
