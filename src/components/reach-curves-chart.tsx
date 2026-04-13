@@ -1,36 +1,12 @@
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { ChannelAllocation } from "@/lib/schema";
+import { channelReach, deduplicatedReach, REACH_PARAMS } from "@/lib/calculations";
 
 const COLORS = [
   "hsl(var(--primary))", "#ef4444", "#f59e0b", "#10b981", "#6366f1",
   "#ec4899", "#14b8a6", "#f97316", "#8b5cf6", "#06b6d4",
 ];
-
-/**
- * Modeled reach curve: logarithmic growth with diminishing returns.
- * reach(spend) = maxReach * (1 - e^(-k * spend))
- * k varies by channel type to reflect different saturation rates.
- */
-const CHANNEL_K: Record<string, number> = {
-  Search: 0.0004, Social: 0.00025, Display: 0.0002, OLV: 0.00015,
-  CTV: 0.00012, "YouTube/YouTubeTV": 0.00018, "Amazon/Prime Video/Twitch": 0.00015,
-  Linear: 0.0001, Radio: 0.00022, Audio: 0.0002, DOOH: 0.00014,
-  OOH: 0.0001, Email: 0.0006, Netflix: 0.00012,
-};
-
-const CHANNEL_MAX_REACH: Record<string, number> = {
-  Search: 50000, Social: 120000, Display: 200000, OLV: 150000,
-  CTV: 300000, "YouTube/YouTubeTV": 250000, "Amazon/Prime Video/Twitch": 180000,
-  Linear: 500000, Radio: 80000, Audio: 100000, DOOH: 120000,
-  OOH: 200000, Email: 30000, Netflix: 250000,
-};
-
-function reachAtSpend(channel: string, spend: number): number {
-  const k = CHANNEL_K[channel] || 0.0002;
-  const max = CHANNEL_MAX_REACH[channel] || 100000;
-  return Math.round(max * (1 - Math.exp(-k * spend)));
-}
 
 interface ReachCurvesChartProps {
   allocations: ChannelAllocation[];
@@ -48,17 +24,20 @@ export function ReachCurvesChart({ allocations, totalBudget }: ReachCurvesChartP
     for (let i = 0; i <= steps; i++) {
       const fraction = i / steps;
       const point: any = { spend: Math.round(fraction * maxSpend) };
-      let combinedReach = 0;
+      const channelReaches: number[] = [];
 
       enabledChannels.forEach(ch => {
-        const channelSpend = fraction * ch.budget * 1.5; // scale proportionally
-        const reach = reachAtSpend(ch.channel, channelSpend);
-        point[ch.channel] = reach;
-        combinedReach += reach;
+        const channelSpend = fraction * ch.budget * 1.5;
+        // channelReach returns a 0-1 fraction; convert to absolute reach using universe
+        const reachFraction = channelReach(ch.channel, channelSpend);
+        const reachCount = Math.round(reachFraction * 98_000_000); // Adults 25-54 universe
+        point[ch.channel] = reachCount;
+        channelReaches.push(reachFraction);
       });
 
-      // De-duplicate combined reach (overlap factor ~30%)
-      point["Combined"] = Math.round(combinedReach * 0.7);
+      // Deduplicated combined reach
+      const dedupFraction = deduplicatedReach(channelReaches);
+      point["Combined"] = Math.round(dedupFraction * 98_000_000);
       points.push(point);
     }
     return points;
@@ -85,7 +64,7 @@ export function ReachCurvesChart({ allocations, totalBudget }: ReachCurvesChartP
               tick={{ fontSize: 10 }}
             />
             <YAxis
-              tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}
+              tickFormatter={v => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}
               className="text-[10px]"
               tick={{ fontSize: 10 }}
             />
@@ -118,13 +97,15 @@ export function ReachCurvesChart({ allocations, totalBudget }: ReachCurvesChartP
       </div>
       <div className="flex items-center gap-4 flex-wrap">
         {enabledChannels.map(ch => {
-          const currentReach = reachAtSpend(ch.channel, ch.budget);
-          const maxReach = CHANNEL_MAX_REACH[ch.channel] || 100000;
-          const saturation = Math.round((currentReach / maxReach) * 100);
+          const reachFraction = channelReach(ch.channel, ch.budget);
+          const params = REACH_PARAMS[ch.channel];
+          const rMax = params?.rMax ?? 1;
+          const saturation = Math.round((reachFraction / rMax) * 100);
+          const reachCount = Math.round(reachFraction * 98_000_000);
           return (
             <div key={ch.channel} className="text-[10px] text-muted-foreground">
               <span className="font-semibold text-foreground">{ch.channel}</span>: {saturation}% saturated
-              ({currentReach.toLocaleString()} reach at ${ch.budget.toLocaleString()})
+              ({reachCount.toLocaleString()} reach at ${ch.budget.toLocaleString()})
             </div>
           );
         })}
