@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlanner } from "@/lib/planner-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,8 @@ function pct(n: number | null | undefined): string {
 }
 
 export default function ReportsPage() {
-  const [selectedAdvertiser, setSelectedAdvertiser] = useState("__all__");
+  const { state } = usePlanner();
+  const [selectedAdvertiser, setSelectedAdvertiser] = useState(state.performanceAdvertiserCode ?? "__all__");
   const [selectedChannel, setSelectedChannel] = useState("__all__");
   const [selectedGoal, setSelectedGoal] = useState("__all__");
   const [dateFrom, setDateFrom] = useState("");
@@ -39,17 +41,35 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("channel");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (state.performanceAdvertiserCode && selectedAdvertiser === "__all__") {
+      setSelectedAdvertiser(state.performanceAdvertiserCode);
+    }
+  }, [state.performanceAdvertiserCode, selectedAdvertiser]);
 
   // Load filter options once
   useEffect(() => {
-    Promise.all([
-      supabase.rpc("report_advertisers_list"),
-      supabase.rpc("report_channels_list"),
-      supabase.rpc("report_goals_list"),
-    ]).then(([advRes, chRes, goalRes]) => {
+    const loadFilters = async () => {
+      const [advRes, chRes, goalRes] = await Promise.all([
+        supabase.rpc("report_advertisers_list"),
+        supabase.rpc("report_channels_list"),
+        supabase.rpc("report_goals_list"),
+      ]);
+
+      if (advRes.error) throw advRes.error;
+      if (chRes.error) throw chRes.error;
+      if (goalRes.error) throw goalRes.error;
+
       setAdvertisers((advRes.data || []).map((r: any) => ({ code: r.code, name: r.name })));
       setChannels((chRes.data || []).map((r: any) => r.channel));
       setGoals((goalRes.data || []).map((r: any) => r.goal));
+    };
+
+    loadFilters().catch((error) => {
+      console.error("Report filter load failed", error);
+      setErrorMessage(error.message || "Failed to load report filters.");
     });
   }, []);
 
@@ -62,28 +82,20 @@ export default function ReportsPage() {
   };
 
   // Load summary + active tab data when filters change
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      supabase.rpc("report_summary", filterParams),
-      loadTabData(activeTab),
-    ]).then(([summaryRes]) => {
-      setSummary(summaryRes.data?.[0] || null);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [selectedAdvertiser, selectedChannel, selectedGoal, dateFrom, dateTo]);
-
-  const loadTabData = async (tab: string) => {
+  const loadTabData = async (tab: string, params = filterParams) => {
     setTabLoading(true);
     try {
       if (tab === "channel") {
-        const { data } = await supabase.rpc("report_by_channel", filterParams);
+        const { data, error } = await supabase.rpc("report_by_channel", params);
+        if (error) throw error;
         setChannelData(data || []);
       } else if (tab === "advertiser") {
-        const { data } = await supabase.rpc("report_by_advertiser", filterParams);
+        const { data, error } = await supabase.rpc("report_by_advertiser", params);
+        if (error) throw error;
         setAdvertiserData(data || []);
       } else if (tab === "dma") {
-        const { data } = await supabase.rpc("report_by_dma", filterParams);
+        const { data, error } = await supabase.rpc("report_by_dma", params);
+        if (error) throw error;
         setDmaData(data || []);
       }
     } finally {
@@ -91,9 +103,49 @@ export default function ReportsPage() {
     }
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadReports = async () => {
+      setLoading(true);
+      setErrorMessage("");
+
+      try {
+        const [summaryRes] = await Promise.all([
+          supabase.rpc("report_summary", filterParams),
+          loadTabData(activeTab, filterParams),
+        ]);
+
+        if (summaryRes.error) throw summaryRes.error;
+
+        if (!cancelled) {
+          setSummary(summaryRes.data?.[0] || null);
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          console.error("Report data load failed", error);
+          setSummary(null);
+          setChannelData([]);
+          setAdvertiserData([]);
+          setDmaData([]);
+          setErrorMessage(error.message || "Failed to load reports.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadReports();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAdvertiser, selectedChannel, selectedGoal, dateFrom, dateTo, activeTab]);
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    loadTabData(tab);
   };
 
   const totalImpressions = Number(summary?.total_impressions || 0);
@@ -118,6 +170,14 @@ export default function ReportsPage() {
             Aggregated campaign performance across all advertisers
           </p>
         </div>
+
+        {errorMessage && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-destructive">{errorMessage}</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filters */}
         <Card>

@@ -15,6 +15,7 @@ import {
   type OOHVertical, type OOHType, type Daypart,
 } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX, CHANNEL_META, CHANNEL_PRESETS, getChannelHint } from "@/lib/benchmarks";
+import { expandHistoricalChannels } from "@/lib/channel-mapping";
 import {
   Sparkles, ArrowLeft, ArrowRight, Lock, Unlock, ChevronDown, ChevronUp,
   Search, Share2, Monitor, PlayCircle, Tv, RadioTower,
@@ -42,7 +43,7 @@ export function ChannelsStep() {
   const { channels, intake, goals } = state;
   const channelMixMode = goals.channelMixMode || "expand";
   const performanceChannels: string[] = (state as any).performanceChannels || [];
-  const normalizedHistoricalChannels = performanceChannels.map((channel) => channel.toLowerCase());
+  const normalizedHistoricalChannels = expandHistoricalChannels(performanceChannels).map((channel) => channel.toLowerCase());
   const isConstrainedMode = channelMixMode === "improve" && normalizedHistoricalChannels.length > 0;
   const budget = intake.monthlyBudget || 5000;
   const hasServices = (intake.detected?.services?.length || 0) > 0;

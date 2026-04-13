@@ -15,6 +15,7 @@ import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance } from "@/lib/schema";
 import { CHANNELS } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
+import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
 import {
   ArrowLeft, Sparkles, Save, CheckCircle2,
   TrendingUp, Shield, Zap, Printer, Copy, Check,
@@ -70,12 +71,12 @@ function generateFallbackPlans(state: any): PlanOption[] {
   const budget = intake.monthlyBudget || 5000;
   const goal = goals.goal || "Leads";
   const mix = DEFAULT_CHANNEL_MIX[goal] || {};
-  const constrainedHistoricalChannels = (state.performanceChannels || []).map((c: string) => c.toLowerCase());
+  const constrainedHistoricalChannels = expandHistoricalChannels(state.performanceChannels || []).map((c: string) => c.toLowerCase());
   const isImproveMode = goals.channelMixMode === "improve" && constrainedHistoricalChannels.length > 0;
 
   const makeAllocs = (multiplier: number): ChannelAllocation[] => {
     if (channels.allocations?.length > 0) {
-      return channels.allocations
+      const scaledExistingAllocations = channels.allocations
         .map((a: ChannelAllocation) => {
           const isHistorical = constrainedHistoricalChannels.includes(a.channel.toLowerCase());
           const enabled = isImproveMode ? a.enabled && isHistorical : a.enabled;
@@ -85,8 +86,11 @@ function generateFallbackPlans(state: any): PlanOption[] {
             percentage: enabled ? a.percentage : 0,
             budget: enabled ? Math.round(a.budget * multiplier) : 0,
           };
-        })
-        .filter((a: ChannelAllocation) => a.enabled || !isImproveMode);
+        });
+
+      if (scaledExistingAllocations.some((allocation: ChannelAllocation) => allocation.enabled)) {
+        return scaledExistingAllocations.filter((a: ChannelAllocation) => a.enabled || !isImproveMode);
+      }
     }
 
     return CHANNELS.map(ch => {
@@ -413,7 +417,7 @@ export function ReviewStep() {
                         <TableBody>
                           {enabledChannels.map(ch => {
                             const m = estimateMetrics(ch);
-                            const hasHistory = historicalData.some(h => h.channel.toLowerCase() === ch.channel.toLowerCase());
+                            const hasHistory = historicalData.some(h => matchesHistoricalPlannerChannel(ch.channel, h.channel));
                             return (
                               <TableRow key={ch.channel}>
                                 <TableCell>
