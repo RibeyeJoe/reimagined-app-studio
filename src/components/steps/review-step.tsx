@@ -199,7 +199,9 @@ export function ReviewStep() {
   const enabledChannels = activePlan?.allocations.filter(a => a.enabled) || [];
 
   /* ── totals via calculation engine ── */
-  const planCalc = activePlan ? calculatePlan(activePlan.allocations) : null;
+  const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
+  const universeK = getUniverse(geoParam);
+  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam) : null;
   const totals = {
     impressions: planCalc?.totalImpressions ?? 0,
     reach: planCalc?.totalReach ?? 0,
@@ -418,7 +420,7 @@ export function ReviewStep() {
                         </TableHeader>
                         <TableBody>
                           {enabledChannels.map(ch => {
-                            const m = estimateMetrics(ch);
+                            const m = estimateMetrics(ch, universeK);
                             const hasHistory = historicalData.some(h => matchesHistoricalPlannerChannel(ch.channel, h.channel));
                             return (
                               <TableRow key={ch.channel}>
