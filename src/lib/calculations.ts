@@ -63,6 +63,85 @@ export const UNIVERSE: Record<string, number> = {
   "Adults 35-64": 88000, "Adults 55+": 65000, "Women 18-49": 67000, "Men 18-49": 68000,
 };
 
+// ─── Geo universe lookup (Adults 25-54, 000s) ────────────────────────────────
+// Source: Nielsen DMA Audience Estimates 2024
+export const GEO_UNIVERSE: Record<string, number> = {
+  "National": 98000,
+  "New York": 4820, "Los Angeles": 3610, "Chicago": 2140,
+  "Philadelphia": 1580, "Dallas-Ft. Worth": 1920,
+  "San Francisco-Oakland": 1410, "Washington DC (Hagerstown)": 1680,
+  "Houston": 1730, "Atlanta": 1640, "Boston (Manchester)": 1290,
+  "Seattle-Tacoma": 1080, "Phoenix (Prescott)": 1480,
+  "Tampa-St. Pete": 1010, "Minneapolis-St. Paul": 940,
+  "Miami-Ft. Lauderdale": 1120, "Denver": 870,
+  "Orlando-Daytona Beach": 920, "Cleveland-Akron": 790,
+  "Sacramento-Stockton": 790, "St. Louis": 730,
+  "Portland, OR": 710, "Baltimore": 740, "San Diego": 710,
+  "Indianapolis": 650, "Charlotte": 760, "Nashville": 660,
+  "Hartford-New Haven": 600, "Kansas City": 630,
+  "Columbus, OH": 590, "San Antonio": 680,
+  "Salt Lake City": 580, "Austin": 680, "Cincinnati": 580,
+  "Milwaukee": 510, "Las Vegas": 580,
+  "West Palm Beach-Ft. Pierce": 510, "Grand Rapids-Kalamazoo": 480,
+  "Birmingham (Ann-Tusc)": 460, "Oklahoma City": 470,
+};
+
+export function geoUniverse(geoSelection?: string | string[] | null): number {
+  if (!geoSelection || geoSelection === "National") return GEO_UNIVERSE["National"];
+  if (Array.isArray(geoSelection)) {
+    return geoSelection.reduce((sum, dma) => sum + (GEO_UNIVERSE[dma] || 300), 0);
+  }
+  return GEO_UNIVERSE[geoSelection] || 300;
+}
+
+// ─── Audience segment penetration (fraction of Adults 25-54) ─────────────────
+// Source: MRI-Simmons Gold Survey 2024
+export const AUDIENCE_SEGMENTS: Record<string, { fraction: number }> = {
+  "All Adults":              { fraction: 1.000 },
+  "Auto Intenders":          { fraction: 0.121 },
+  "Luxury Auto":             { fraction: 0.041 },
+  "Truck/SUV Buyers":        { fraction: 0.068 },
+  "In-Market: Mortgage":     { fraction: 0.052 },
+  "In-Market: Credit Card":  { fraction: 0.148 },
+  "High HHI ($150k+)":       { fraction: 0.187 },
+  "Dog Owners":              { fraction: 0.381 },
+  "Cat Owners":              { fraction: 0.259 },
+  "Pet Owners (any)":        { fraction: 0.481 },
+  "Health-Conscious":        { fraction: 0.312 },
+  "Organic Buyers":          { fraction: 0.228 },
+  "QSR Visitors (wkly)":     { fraction: 0.441 },
+  "Pizza Buyers":            { fraction: 0.389 },
+  "Homeowners":              { fraction: 0.612 },
+  "Home Improvement":        { fraction: 0.241 },
+  "Frequent Travelers":      { fraction: 0.198 },
+  "In-Market: Travel":       { fraction: 0.163 },
+  "Parents (HH w/ kids)":    { fraction: 0.318 },
+  "New Parents":             { fraction: 0.048 },
+  "College Students":        { fraction: 0.091 },
+  "Democrats":               { fraction: 0.312 },
+  "Republicans":             { fraction: 0.289 },
+  "Independent Voters":      { fraction: 0.289 },
+  "Hispanic/Latino":         { fraction: 0.192 },
+  "African American":        { fraction: 0.128 },
+  "Asian American":          { fraction: 0.062 },
+};
+
+export function audienceFraction(segmentName?: string | null): number {
+  if (!segmentName || segmentName === "All Adults") return 1.0;
+  return (AUDIENCE_SEGMENTS[segmentName] || { fraction: 1.0 }).fraction;
+}
+
+/**
+ * Returns the in-scope universe in thousands.
+ * Chains geo reduction THEN audience reduction.
+ * National (98M) → Denver (870k) → Denver Auto Intenders (105k)
+ */
+export function getUniverse(geo: string | string[] | null = "National", audience: string | null = "All Adults"): number {
+  const geoSize = geoUniverse(geo);
+  const segFrac = audienceFraction(audience);
+  return Math.max(Math.round(geoSize * segFrac), 1);
+}
+
 // ─── 1. Per-channel reach from budget ────────────────────────────────────────
 export function channelReach(channelName: string, budget: number): number {
   const params = REACH_PARAMS[channelName];
@@ -198,13 +277,18 @@ export interface PlanCalculation {
   naiveSumReachPct: number;
   shareOfVoice: Array<{ name: string; sov: number; awi: number }>;
   channels: Array<{ name: string; budget: number; metrics: ChannelMetrics }>;
+  universe: number;
+  universeLabel: string;
+  totalDedupReachPersons: number;
 }
 
 export function calculatePlan(
   allocations: ChannelAllocation[],
-  targetDemo = "Adults 25-54"
+  targetDemo = "Adults 25-54",
+  geo: string | string[] | null = "National",
+  audience: string | null = "All Adults",
 ): PlanCalculation {
-  const universe = UNIVERSE[targetDemo] ?? UNIVERSE["Adults 25-54"];
+  const universe = getUniverse(geo, audience);
   const enabled = allocations.filter(a => a.enabled && a.budget > 0);
 
   const channelOutputs = enabled.map(ch => ({
@@ -224,6 +308,9 @@ export function calculatePlan(
 
   const sovInput = channelOutputs.map(c => ({ name: c.name, budget: c.budget }));
 
+  const geoLabel = !geo || geo === "National" ? "U.S." : (Array.isArray(geo) ? geo.join(", ") : geo);
+  const audienceLabel = !audience || audience === "All Adults" ? targetDemo : audience;
+
   return {
     totalDedupReachPct: ci.mid,
     reachCI: ci,
@@ -236,5 +323,8 @@ export function calculatePlan(
     naiveSumReachPct: +(reaches.reduce((a, b) => a + b, 0) * 100).toFixed(1),
     shareOfVoice: shareOfVoice(sovInput),
     channels: channelOutputs,
+    universe,
+    universeLabel: `${universe.toLocaleString()}k ${audienceLabel} in ${geoLabel}`,
+    totalDedupReachPersons: totalReachCount,
   };
 }

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance } from "@/lib/schema";
-import { calculatePlan, channelMetrics, DEFAULT_CPMS } from "@/lib/calculations";
+import { calculatePlan, channelMetrics, getUniverse, DEFAULT_CPMS } from "@/lib/calculations";
 import { CHANNELS } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
 import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
@@ -40,14 +40,14 @@ const PLAN_META: Record<string, { icon: typeof Shield; label: string; color: str
 
 /* ── CPM benchmarks now come from calculations.ts ── */
 
-function estimateMetrics(alloc: ChannelAllocation) {
-  const m = channelMetrics(alloc.channel, alloc.budget, 98000); // Adults 25-54 universe
+function estimateMetrics(alloc: ChannelAllocation, universeK: number) {
+  const m = channelMetrics(alloc.channel, alloc.budget, universeK);
   return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm };
 }
 
-function generateSOV(allocs: ChannelAllocation[], _budget: number): ShareOfVoice[] {
+function generateSOV(allocs: ChannelAllocation[], _budget: number, geo?: string | string[] | null, audience?: string | null): ShareOfVoice[] {
   const enabled = allocs.filter(a => a.enabled && a.budget > 0);
-  const plan = calculatePlan(allocs);
+  const plan = calculatePlan(allocs, "Adults 25-54", geo, audience);
   const sovMap = new Map(plan.shareOfVoice.map(s => [s.name, s]));
 
   return enabled.map(a => {
@@ -143,7 +143,13 @@ function generateFallbackPlans(state: any): PlanOption[] {
     },
   ];
 
-  return plans.map(p => ({ ...p, shareOfVoice: generateSOV(p.allocations, p.totalBudget) }));
+  return plans.map(p => ({ ...p, shareOfVoice: generateSOV(p.allocations, p.totalBudget, state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National", null) }));
+}
+
+function parseDMAs(geoValue: string): string | string[] {
+  if (!geoValue) return "National";
+  const parts = geoValue.split(",").map(s => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts : parts[0] || "National";
 }
 
 function confidenceBadge(c: ConfidenceLevel) {
@@ -193,7 +199,9 @@ export function ReviewStep() {
   const enabledChannels = activePlan?.allocations.filter(a => a.enabled) || [];
 
   /* ── totals via calculation engine ── */
-  const planCalc = activePlan ? calculatePlan(activePlan.allocations) : null;
+  const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
+  const universeK = getUniverse(geoParam);
+  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam) : null;
   const totals = {
     impressions: planCalc?.totalImpressions ?? 0,
     reach: planCalc?.totalReach ?? 0,
@@ -349,7 +357,16 @@ export function ReviewStep() {
                 <SummaryCard icon={Shield} label="Confidence" value={activePlan.confidence} badge />
               </div>
 
-              {/* Flight Timeline */}
+              {/* Universe Label */}
+              {planCalc && (
+                <div className="flex items-center gap-3 px-1 text-xs text-muted-foreground">
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  <span>Universe: <span className="font-semibold text-foreground">{planCalc.universeLabel}</span></span>
+                  <span className="text-muted-foreground">·</span>
+                  <span>{planCalc.totalDedupReachPct}% reach · ~{fmt(planCalc.totalDedupReachPersons)} people</span>
+                </div>
+              )}
+
               {(flightStart || flightEnd) && (
                 <Card className="p-4 card-elevated">
                   <div className="flex items-center gap-2 mb-3">
@@ -412,7 +429,7 @@ export function ReviewStep() {
                         </TableHeader>
                         <TableBody>
                           {enabledChannels.map(ch => {
-                            const m = estimateMetrics(ch);
+                            const m = estimateMetrics(ch, universeK);
                             const hasHistory = historicalData.some(h => matchesHistoricalPlannerChannel(ch.channel, h.channel));
                             return (
                               <TableRow key={ch.channel}>
