@@ -114,6 +114,7 @@ export function IntakeStep() {
         performanceDMAs: [],
         performanceZIPs: [],
         performanceChannels: [],
+        historicalData: [],
       }));
       setLookup({ status: "idle" });
     } else {
