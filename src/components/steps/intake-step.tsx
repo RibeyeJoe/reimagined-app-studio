@@ -341,9 +341,64 @@ export function IntakeStep() {
       <div>
         <h2 className="text-2xl font-display font-bold text-foreground">Client Intake</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Start by entering your client's information. We'll analyze their website to auto-detect their business.
+          Start by choosing whether this is a new or existing client, then fill in their details.
         </p>
       </div>
+
+      {/* Planning Path Selector */}
+      <Card className="p-5 space-y-4 card-elevated">
+        <Label className="text-sm font-display font-semibold">Planning Path</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setPlanningPath("new")}
+            className={cn(
+              "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all text-center",
+              planningPath === "new"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/30"
+            )}
+          >
+            <Sparkles className="w-6 h-6 text-primary" />
+            <span className="text-sm font-semibold">New Client</span>
+            <span className="text-[11px] text-muted-foreground leading-tight">
+              Start fresh with manual inputs and benchmark data
+            </span>
+          </button>
+          <button
+            onClick={() => setPlanningPath("existing")}
+            className={cn(
+              "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all text-center",
+              planningPath === "existing"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/30"
+            )}
+          >
+            <Database className="w-6 h-6 text-primary" />
+            <span className="text-sm font-semibold">Existing Client</span>
+            <span className="text-[11px] text-muted-foreground leading-tight">
+              Pull in historical data to optimize performance
+            </span>
+          </button>
+        </div>
+
+        {planningPath === "existing" && (
+          <div className="space-y-2 animate-fade-in">
+            <Label className="text-xs font-medium">Select Advertiser</Label>
+            <Select onValueChange={selectAdvertiser}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={advertiserListLoading ? "Loading advertisers…" : "Choose an advertiser"} />
+              </SelectTrigger>
+              <SelectContent>
+                {advertiserList.map(adv => (
+                  <SelectItem key={adv.code} value={adv.code}>
+                    {adv.name} ({adv.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </Card>
 
       <Card className="p-6 space-y-5 card-elevated">
         <div className="space-y-4">
