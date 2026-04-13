@@ -243,8 +243,8 @@ export interface ChannelMetrics {
   awi: number;
 }
 
-export function channelMetrics(channelName: string, budget: number, universeThousands: number): ChannelMetrics {
-  const cpm = DEFAULT_CPMS[channelName] || 15;
+export function channelMetrics(channelName: string, budget: number, universeThousands: number, customCpm?: number): ChannelMetrics {
+  const cpm = customCpm ?? DEFAULT_CPMS[channelName] ?? 15;
   const impressions = Math.round((budget / cpm) * 1000);
   const reachFraction = channelReach(channelName, budget);
   // Cap reach count: you can't reach more unique people than you have impressions
@@ -287,6 +287,7 @@ export function calculatePlan(
   targetDemo = "Adults 25-54",
   geo: string | string[] | null = "National",
   audience: string | null = "All Adults",
+  customCpms?: Record<string, number>,
 ): PlanCalculation {
   const universe = getUniverse(geo, audience);
   const enabled = allocations.filter(a => a.enabled && a.budget > 0);
@@ -294,7 +295,7 @@ export function calculatePlan(
   const channelOutputs = enabled.map(ch => ({
     name: ch.channel,
     budget: ch.budget,
-    metrics: channelMetrics(ch.channel, ch.budget, universe),
+    metrics: channelMetrics(ch.channel, ch.budget, universe, customCpms?.[ch.channel]),
   }));
 
   const reaches = channelOutputs.map(c => c.metrics.reachPct / 100);

@@ -12,6 +12,7 @@ import ChannelConfigModal, {
   getConfigSummary,
 } from "@/components/channel-config-modal";
 import { toast } from "sonner";
+import { DEFAULT_CONFIGS } from "@/lib/media-channel-defaults";
 
 const CHANNEL_ICONS: Record<string, typeof Search> = {
   Search, Social: Share2, Display: Monitor, OLV: PlayCircle,
@@ -30,7 +31,7 @@ const EMPTY_CONFIG: ChannelConfig = {
 };
 
 export default function MediaChannelsPage() {
-  const [configs, setConfigs] = useState<Record<string, ChannelConfig>>({});
+  const [configs, setConfigs] = useState<Record<string, ChannelConfig>>(DEFAULT_CONFIGS);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
 
   const handleSave = (channel: Channel, config: ChannelConfig) => {
