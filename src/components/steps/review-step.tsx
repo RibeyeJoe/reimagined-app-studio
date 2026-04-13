@@ -192,15 +192,14 @@ export function ReviewStep() {
   };
   const enabledChannels = activePlan?.allocations.filter(a => a.enabled) || [];
 
-  /* ── totals ── */
-  const totals = enabledChannels.reduce((acc, a) => {
-    const m = estimateMetrics(a);
-    acc.impressions += m.impressions;
-    acc.reach += m.reach;
-    acc.budget += a.budget;
-    return acc;
-  }, { impressions: 0, reach: 0, budget: 0 });
-  const avgFrequency = totals.reach > 0 ? +(totals.impressions / totals.reach).toFixed(1) : 0;
+  /* ── totals via calculation engine ── */
+  const planCalc = activePlan ? calculatePlan(activePlan.allocations) : null;
+  const totals = {
+    impressions: planCalc?.totalImpressions ?? 0,
+    reach: planCalc?.totalReach ?? 0,
+    budget: enabledChannels.reduce((s, a) => s + a.budget, 0),
+  };
+  const avgFreq = planCalc?.avgFrequency ?? 0;
 
   /* ── generate narrative ── */
   const generateNarrative = async () => {
