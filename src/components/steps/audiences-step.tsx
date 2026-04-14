@@ -10,19 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { AUDIENCE_TIERS, type AudienceTier, type AudienceItem } from "@/lib/schema";
 import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2 } from "lucide-react";
+import { generateAudienceSuggestions } from "@/lib/audience-suggestions";
 
 const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; description: string }> = {
   "High Intent": { icon: Zap, color: "bg-emerald-100 text-emerald-700", description: "Ready to buy or take action now" },
   "Mid Intent": { icon: TrendingUp, color: "bg-blue-100 text-blue-700", description: "Researching and comparing options" },
   "Reach": { icon: Megaphone, color: "bg-primary/10 text-primary", description: "Building awareness with broad audiences" },
-};
-
-const AUDIENCE_SUGGESTIONS: Record<string, Record<AudienceTier, string[]>> = {
-  default: {
-    "High Intent": ["Service page intent themes", "Category-specific search intent", "Website retargeting"],
-    "Mid Intent": ["In-market for related services", "Content engagers", "Comparison shoppers"],
-    "Reach": ["Local reach in geo", "Contextual: relevant content", "Demographic targeting"],
-  },
 };
 
 export function AudiencesStep() {
