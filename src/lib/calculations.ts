@@ -320,8 +320,8 @@ export function calculatePlan(
       const areZips = geo.every(g => /^\d{5}$/.test(g));
       return areZips ? `${geo.length} ZIP codes` : `${geo.length} DMAs`;
     }
-    // Single string that may contain semicolons/commas
-    const parts = geo.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    // Single string that may contain semicolons
+    const parts = geo.split(";").map(s => s.trim()).filter(Boolean);
     if (parts.length <= 3) return parts.join(", ");
     const areZips = parts.every(g => /^\d{5}$/.test(g));
     return areZips ? `${parts.length} ZIP codes` : `${parts.length} DMAs`;
