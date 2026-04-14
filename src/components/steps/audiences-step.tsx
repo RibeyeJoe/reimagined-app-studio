@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { AUDIENCE_TIERS, type AudienceTier, type AudienceItem } from "@/lib/schema";
 import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2 } from "lucide-react";
+import { generateAudienceSuggestions } from "@/lib/audience-suggestions";
 
 const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; description: string }> = {
   "High Intent": { icon: Zap, color: "bg-emerald-100 text-emerald-700", description: "Ready to buy or take action now" },
@@ -17,28 +18,19 @@ const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; descrip
   "Reach": { icon: Megaphone, color: "bg-primary/10 text-primary", description: "Building awareness with broad audiences" },
 };
 
-const AUDIENCE_SUGGESTIONS: Record<string, Record<AudienceTier, string[]>> = {
-  default: {
-    "High Intent": ["Service page intent themes", "Category-specific search intent", "Website retargeting"],
-    "Mid Intent": ["In-market for related services", "Content engagers", "Comparison shoppers"],
-    "Reach": ["Local reach in geo", "Contextual: relevant content", "Demographic targeting"],
-  },
-};
-
 export function AudiencesStep() {
   const { state, updateAudiences, setStep } = usePlanner();
   const { audiences, intake } = state;
   const [newInput, setNewInput] = useState("");
   const [newTier, setNewTier] = useState<AudienceTier>("High Intent");
-  const vertical = intake.detected?.vertical || "default";
 
   const suggestAudiences = () => {
-    const suggestions = AUDIENCE_SUGGESTIONS[vertical] || AUDIENCE_SUGGESTIONS.default;
-    const all: AudienceItem[] = [];
-    for (const tier of AUDIENCE_TIERS) {
-      for (const name of suggestions[tier]) { all.push({ name, tier }); }
-    }
-    updateAudiences({ audiences: all });
+    const vertical = intake.detected?.vertical || "default";
+    const services = intake.detected?.services || [];
+    const businessName = intake.businessName || intake.detected?.businessName || "";
+    const goal = state.goals?.goal || null;
+    const result = generateAudienceSuggestions(vertical, goal, businessName, audiences.conquestEnabled, services);
+    updateAudiences({ audiences: result.audiences });
   };
 
   const removeAudience = (name: string) => {
