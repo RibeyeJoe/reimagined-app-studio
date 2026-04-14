@@ -206,7 +206,7 @@ function generateFallbackPlans(state: any): PlanOption[] {
 
 function parseDMAs(geoValue: string): string | string[] {
   if (!geoValue) return "National";
-  const parts = geoValue.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  const parts = geoValue.split(";").map(s => s.trim()).filter(Boolean);
   return parts.length > 1 ? parts : parts[0] || "National";
 }
 
