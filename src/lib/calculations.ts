@@ -312,7 +312,20 @@ export function calculatePlan(
 
   const sovInput = channelOutputs.map(c => ({ name: c.name, budget: c.budget }));
 
-  const geoLabel = !geo || geo === "National" ? "U.S." : (Array.isArray(geo) ? geo.join(", ") : geo);
+  const geoLabel = (() => {
+    if (!geo || geo === "National") return "U.S.";
+    if (Array.isArray(geo)) {
+      if (geo.length <= 3) return geo.join(", ");
+      // Detect if entries look like ZIP codes (all digits, 5 chars)
+      const areZips = geo.every(g => /^\d{5}$/.test(g));
+      return areZips ? `${geo.length} ZIP codes` : `${geo.length} DMAs`;
+    }
+    // Single string that may contain semicolons/commas
+    const parts = geo.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    if (parts.length <= 3) return parts.join(", ");
+    const areZips = parts.every(g => /^\d{5}$/.test(g));
+    return areZips ? `${parts.length} ZIP codes` : `${parts.length} DMAs`;
+  })();
   const audienceLabel = !audience || audience === "All Adults" ? targetDemo : audience;
 
   return {
