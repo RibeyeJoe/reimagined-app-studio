@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance, ExpectedRange, Requirement } from "@/lib/schema";
-import { calculatePlan, channelMetrics, getUniverse, DEFAULT_CPMS } from "@/lib/calculations";
+import { calculatePlan, channelMetrics, getUniverse, DEFAULT_CPMS, UNIVERSE, AUDIENCE_SEGMENTS } from "@/lib/calculations";
 import { CHANNEL_CTR, CHANNEL_CONV_RATE } from "@/lib/channel-ctr";
 import { DEFAULT_CONFIGS, getConfigCPM } from "@/lib/media-channel-defaults";
 import { CHANNELS } from "@/lib/schema";
@@ -113,13 +113,14 @@ function generateFallbackPlans(state: any): PlanOption[] {
   };
 
   const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
+  const audienceParam = extractAudience(audiences.audiences || []);
   const hasAnalyzedUrl = intake.analyzed;
   const isExistingClient = state.planningPath === "existing";
 
   const buildPlan = (name: "Conservative" | "Balanced" | "Aggressive", multiplier: number, conf: ConfidenceLevel): PlanOption => {
     const allocs = makeAllocs(multiplier);
     const totalBudget = Math.round(budget * multiplier);
-    const calc = calculatePlan(allocs, "Adults 25-54", geoParam, null, CUSTOM_CPMS);
+    const calc = calculatePlan(allocs, "Adults 25-54", geoParam, audienceParam, CUSTOM_CPMS);
     const enabled = allocs.filter(a => a.enabled && a.budget > 0);
 
     // Compute clicks from CTR benchmarks
@@ -192,7 +193,7 @@ function generateFallbackPlans(state: any): PlanOption[] {
       goal, kpis: goals.kpis || [], geoSummary: geo.geoValue || "TBD",
       audienceSummary: `${audiences.audiences.length} audience segments`,
       allocations: allocs, expectedRanges, confidence: conf, rationale, requirements, totalBudget,
-      shareOfVoice: generateSOV(allocs, totalBudget, geoParam, null),
+      shareOfVoice: generateSOV(allocs, totalBudget, geoParam, audienceParam),
     };
   };
 
@@ -205,8 +206,16 @@ function generateFallbackPlans(state: any): PlanOption[] {
 
 function parseDMAs(geoValue: string): string | string[] {
   if (!geoValue) return "National";
-  const parts = geoValue.split(",").map(s => s.trim()).filter(Boolean);
+  const parts = geoValue.split(/[,;]/).map(s => s.trim()).filter(Boolean);
   return parts.length > 1 ? parts : parts[0] || "National";
+}
+
+function extractAudience(audiences: Array<{ name: string }>): string | null {
+  const allKeys = new Set([...Object.keys(UNIVERSE), ...Object.keys(AUDIENCE_SEGMENTS)]);
+  for (const a of audiences) {
+    if (allKeys.has(a.name)) return a.name;
+  }
+  return null;
 }
 
 function confidenceBadge(c: ConfidenceLevel) {
@@ -256,9 +265,10 @@ export function ReviewStep() {
   const enabledChannels = activePlan?.allocations.filter(a => a.enabled) || [];
 
   /* ── totals via calculation engine ── */
-  const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
-  const universeK = getUniverse(geoParam);
-  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam, null, CUSTOM_CPMS) : null;
+  const geoParam2 = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
+  const audienceParam2 = extractAudience(state.audiences?.audiences || []);
+  const universeK = getUniverse(geoParam2, audienceParam2);
+  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam2, audienceParam2, CUSTOM_CPMS) : null;
   const totals = {
     impressions: planCalc?.totalImpressions ?? 0,
     reach: planCalc?.totalReach ?? 0,
@@ -532,7 +542,7 @@ export function ReviewStep() {
 
                 <TabsContent value="reach">
                   <Card className="p-5 card-elevated">
-                    <ReachCurvesChart allocations={activePlan.allocations} totalBudget={activePlan.totalBudget} />
+                    <ReachCurvesChart allocations={activePlan.allocations} totalBudget={activePlan.totalBudget} universeThousands={universeK} />
                   </Card>
                 </TabsContent>
 
