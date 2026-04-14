@@ -26,12 +26,12 @@ export function AudiencesStep() {
   const vertical = intake.detected?.vertical || "default";
 
   const suggestAudiences = () => {
-    const suggestions = AUDIENCE_SUGGESTIONS[vertical] || AUDIENCE_SUGGESTIONS.default;
-    const all: AudienceItem[] = [];
-    for (const tier of AUDIENCE_TIERS) {
-      for (const name of suggestions[tier]) { all.push({ name, tier }); }
-    }
-    updateAudiences({ audiences: all });
+    const vertical = intake.detected?.vertical || "default";
+    const services = intake.detected?.services || [];
+    const businessName = intake.businessName || intake.detected?.businessName || "";
+    const goal = state.goals?.goal || null;
+    const result = generateAudienceSuggestions(vertical, goal, businessName, audiences.conquestEnabled, services);
+    updateAudiences({ audiences: result.audiences });
   };
 
   const removeAudience = (name: string) => {
