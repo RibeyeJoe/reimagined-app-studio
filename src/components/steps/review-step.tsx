@@ -210,10 +210,10 @@ function parseDMAs(geoValue: string): string | string[] {
   return parts.length > 1 ? parts : parts[0] || "National";
 }
 
-function extractAudience(audiences: string[]): string | null {
+function extractAudience(audiences: Array<{ name: string }>): string | null {
   const allKeys = new Set([...Object.keys(UNIVERSE), ...Object.keys(AUDIENCE_SEGMENTS)]);
   for (const a of audiences) {
-    if (allKeys.has(a)) return a;
+    if (allKeys.has(a.name)) return a.name;
   }
   return null;
 }
