@@ -23,7 +23,6 @@ export function AudiencesStep() {
   const { audiences, intake } = state;
   const [newInput, setNewInput] = useState("");
   const [newTier, setNewTier] = useState<AudienceTier>("High Intent");
-  const vertical = intake.detected?.vertical || "default";
 
   const suggestAudiences = () => {
     const vertical = intake.detected?.vertical || "default";
