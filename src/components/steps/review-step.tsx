@@ -51,12 +51,46 @@ function buildCustomCpms(): Record<string, number> {
   return cpms;
 }
 
+function buildDaypartRateMap(): Record<string, Record<string, number>> {
+  const map: Record<string, Record<string, number>> = {};
+  for (const ch of CHANNELS) {
+    const dpMap = getDaypartRateMap(DEFAULT_CONFIGS[ch]);
+    if (dpMap) map[ch] = dpMap;
+  }
+  return map;
+}
+
 const CUSTOM_CPMS = buildCustomCpms();
+const DAYPART_RATES = buildDaypartRateMap();
+
+function buildDaypartSplits(allocs: ChannelAllocation[]): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  for (const a of allocs) {
+    if (a.daypartBudgetSplit && Object.keys(a.daypartBudgetSplit).length > 0) {
+      out[a.channel] = a.daypartBudgetSplit;
+    }
+  }
+  return out;
+}
 
 function estimateMetrics(alloc: ChannelAllocation, universeK: number) {
   const cpm = CUSTOM_CPMS[alloc.channel];
-  const m = channelMetrics(alloc.channel, alloc.budget, universeK, cpm);
-  return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm, source: cpm ? "Rate Card" as const : "Benchmark" as const };
+  const m = channelMetrics(
+    alloc.channel,
+    alloc.budget,
+    universeK,
+    cpm,
+    alloc.daypartBudgetSplit,
+    DAYPART_RATES[alloc.channel],
+  );
+  return {
+    impressions: m.impressions,
+    reach: m.reach,
+    frequency: m.frequency,
+    cpm: m.cpm,
+    daypartLines: m.daypartLines,
+    source: cpm ? "Rate Card" as const : "Benchmark" as const,
+  };
 }
 
 function generateSOV(allocs: ChannelAllocation[], _budget: number, geo?: string | string[] | null, audience?: string | null): ShareOfVoice[] {
