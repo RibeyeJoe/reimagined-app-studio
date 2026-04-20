@@ -11,7 +11,7 @@
  * Channel keys match the app's Channel type from schema.ts.
  */
 
-import type { Channel, ChannelAllocation, ShareOfVoice } from "./schema";
+import type { Channel, ChannelAllocation, ShareOfVoice, Daypart } from "./schema";
 
 // ─── Reach curve parameters per channel ──────────────────────────────────────
 interface ReachParam {
@@ -63,10 +63,27 @@ export const UNIVERSE: Record<string, number> = {
   "Adults 35-64": 88000, "Adults 55+": 65000, "Women 18-49": 67000, "Men 18-49": 68000,
 };
 
+// Demo population as a fraction of A25-54 (used to scale geo universe by selected demo)
+const DEMO_TO_A2554_RATIO: Record<string, number> = {
+  "Adults 18-34": 72000 / 98000,
+  "Adults 18-49": 135000 / 98000,
+  "Adults 25-54": 1.0,
+  "Adults 35-64": 88000 / 98000,
+  "Adults 55+": 65000 / 98000,
+  "Women 18-49": 67000 / 98000,
+  "Men 18-49": 68000 / 98000,
+};
+
+export function demoScale(demo?: string | null): number {
+  if (!demo) return 1.0;
+  return DEMO_TO_A2554_RATIO[demo] ?? 1.0;
+}
+
 // ─── Geo universe lookup (Adults 25-54, 000s) ────────────────────────────────
-// Source: Nielsen DMA Audience Estimates 2024
+// Source: Nielsen DMA Audience Estimates 2024. Top markets exact; remainder estimated.
 export const GEO_UNIVERSE: Record<string, number> = {
   "National": 98000,
+  // Top 50 markets (verified)
   "New York": 4820, "Los Angeles": 3610, "Chicago": 2140,
   "Philadelphia": 1580, "Dallas-Ft. Worth": 1920,
   "San Francisco-Oakland": 1410, "Washington DC (Hagerstown)": 1680,
@@ -84,14 +101,145 @@ export const GEO_UNIVERSE: Record<string, number> = {
   "Milwaukee": 510, "Las Vegas": 580,
   "West Palm Beach-Ft. Pierce": 510, "Grand Rapids-Kalamazoo": 480,
   "Birmingham (Ann-Tusc)": 460, "Oklahoma City": 470,
+  // Additional 200K+ markets
+  "Pittsburgh": 540, "Raleigh-Durham": 560, "Greenville-Spartanburg-Asheville": 510,
+  "Jacksonville": 480, "Memphis": 430, "Louisville": 430,
+  "Buffalo": 380, "New Orleans": 420, "Providence-New Bedford": 390,
+  "Wilkes Barre-Scranton": 320, "Fresno-Visalia": 410,
+  "Albuquerque-Santa Fe": 380, "Albany-Schenectady-Troy": 320,
+  "Little Rock-Pine Bluff": 290, "Richmond-Petersburg": 380,
+  "Mobile-Pensacola": 360, "Tulsa": 370, "Knoxville": 340,
+  "Lexington": 280, "Dayton": 300, "Charleston-Huntington": 270,
+  "Wichita-Hutchinson": 280, "Roanoke-Lynchburg": 280,
+  "Flint-Saginaw-Bay City": 260, "Green Bay-Appleton": 270,
+  "Tucson (Sierra Vista)": 320, "Honolulu": 300, "Des Moines-Ames": 290,
+  "Omaha": 320, "Spokane": 270, "Toledo": 250,
+  "Portland-Auburn, ME": 280, "Springfield, MO": 260,
+  "Madison": 260, "Syracuse": 280, "Columbia, SC": 290,
+  "Huntsville-Decatur (Florence)": 270, "Chattanooga": 240,
+  "Shreveport": 220, "Burlington-Plattsburgh": 220, "South Bend-Elkhart": 220,
+  "El Paso (Las Cruces)": 280, "Jackson, MS": 230,
+  "Savannah": 220, "Greensboro-High Point-Winston-Salem": 460,
+  "Harrisburg-Lancaster-Lebanon-York": 430,
+  "Norfolk-Portsmouth-Newport News": 480,
+  "Greenville-New Bern-Washington": 240,
+  "Charleston, SC": 250, "Boise": 260, "Reno": 220,
+  "Fort Myers-Naples": 320, "Champaign-Springfield-Decatur": 220,
+  "Lincoln-Hastings-Kearney": 200, "Davenport-Rock Island-Moline": 220,
+  "Cedar Rapids-Waterloo-Iowa City-Dubuque": 240, "Lansing": 220,
+  "Colorado Springs-Pueblo": 250, "Sioux Falls (Mitchell)": 200,
+  "Eugene": 200, "Baton Rouge": 280, "Lafayette, LA": 220,
 };
+
+// Common DMA aliases / abbreviations → canonical key
+const DMA_ALIASES: Record<string, string> = {
+  "dc": "Washington DC (Hagerstown)",
+  "washington": "Washington DC (Hagerstown)",
+  "washington dc": "Washington DC (Hagerstown)",
+  "sf": "San Francisco-Oakland",
+  "bay area": "San Francisco-Oakland",
+  "san francisco": "San Francisco-Oakland",
+  "dfw": "Dallas-Ft. Worth",
+  "dallas": "Dallas-Ft. Worth",
+  "msp": "Minneapolis-St. Paul",
+  "twin cities": "Minneapolis-St. Paul",
+  "minneapolis": "Minneapolis-St. Paul",
+  "west palm": "West Palm Beach-Ft. Pierce",
+  "west palm beach": "West Palm Beach-Ft. Pierce",
+  "nyc": "New York",
+  "ny": "New York",
+  "la": "Los Angeles",
+  "chi": "Chicago",
+  "philly": "Philadelphia",
+  "atl": "Atlanta",
+  "boston": "Boston (Manchester)",
+  "phoenix": "Phoenix (Prescott)",
+  "tampa": "Tampa-St. Pete",
+  "miami": "Miami-Ft. Lauderdale",
+  "orlando": "Orlando-Daytona Beach",
+  "cleveland": "Cleveland-Akron",
+  "sacramento": "Sacramento-Stockton",
+  "stockton": "Sacramento-Stockton",
+  "portland": "Portland, OR",
+  "raleigh": "Raleigh-Durham",
+  "durham": "Raleigh-Durham",
+  "winston-salem": "Greensboro-High Point-Winston-Salem",
+  "greensboro": "Greensboro-High Point-Winston-Salem",
+  "norfolk": "Norfolk-Portsmouth-Newport News",
+  "virginia beach": "Norfolk-Portsmouth-Newport News",
+  "el paso": "El Paso (Las Cruces)",
+  "honolulu": "Honolulu",
+  "tucson": "Tucson (Sierra Vista)",
+  "providence": "Providence-New Bedford",
+  "scranton": "Wilkes Barre-Scranton",
+  "fresno": "Fresno-Visalia",
+  "albuquerque": "Albuquerque-Santa Fe",
+  "richmond": "Richmond-Petersburg",
+  "harrisburg": "Harrisburg-Lancaster-Lebanon-York",
+  "lancaster": "Harrisburg-Lancaster-Lebanon-York",
+  "york": "Harrisburg-Lancaster-Lebanon-York",
+  "ft myers": "Fort Myers-Naples",
+  "fort myers": "Fort Myers-Naples",
+  "naples": "Fort Myers-Naples",
+};
+
+const STATE_ABBR_RE =
+  /,?\s*\b(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b\.?/gi;
+
+function normalizeDMA(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(STATE_ABBR_RE, "")
+    .replace(/[.()/]/g, " ")
+    .replace(/[-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Resolve a user-entered DMA string to a GEO_UNIVERSE population (in 000s).
+ * Order: exact key → alias → fuzzy substring (highest pop wins) → 300 fallback.
+ */
+export function resolveDMA(input: string): number {
+  if (!input) return 300;
+  // Exact match
+  if (GEO_UNIVERSE[input] != null) return GEO_UNIVERSE[input];
+
+  const norm = normalizeDMA(input);
+  if (!norm) return 300;
+
+  // Alias hit (exact normalized)
+  if (DMA_ALIASES[norm] && GEO_UNIVERSE[DMA_ALIASES[norm]] != null) {
+    return GEO_UNIVERSE[DMA_ALIASES[norm]];
+  }
+
+  // Substring fuzzy match against all keys; pick the highest-population match
+  let bestPop = 0;
+  for (const [key, pop] of Object.entries(GEO_UNIVERSE)) {
+    if (key === "National") continue;
+    const normKey = normalizeDMA(key);
+    if (normKey === norm || normKey.includes(norm) || norm.includes(normKey)) {
+      if (pop > bestPop) bestPop = pop;
+    }
+  }
+  if (bestPop > 0) return bestPop;
+
+  // Token-overlap fallback: any alias whose key contains the input as a token
+  for (const [aliasKey, canonical] of Object.entries(DMA_ALIASES)) {
+    if (norm.includes(aliasKey) || aliasKey.includes(norm)) {
+      const pop = GEO_UNIVERSE[canonical];
+      if (pop && pop > bestPop) bestPop = pop;
+    }
+  }
+  return bestPop || 300;
+}
 
 export function geoUniverse(geoSelection?: string | string[] | null): number {
   if (!geoSelection || geoSelection === "National") return GEO_UNIVERSE["National"];
   if (Array.isArray(geoSelection)) {
-    return geoSelection.reduce((sum, dma) => sum + (GEO_UNIVERSE[dma] || 300), 0);
+    return geoSelection.reduce((sum, dma) => sum + resolveDMA(dma), 0);
   }
-  return GEO_UNIVERSE[geoSelection] || 300;
+  return resolveDMA(geoSelection);
 }
 
 // ─── Audience segment penetration (fraction of Adults 25-54) ─────────────────
@@ -124,22 +272,29 @@ export const AUDIENCE_SEGMENTS: Record<string, { fraction: number }> = {
   "Hispanic/Latino":         { fraction: 0.192 },
   "African American":        { fraction: 0.128 },
   "Asian American":          { fraction: 0.062 },
+  "General Market":          { fraction: 1.000 },
 };
 
 export function audienceFraction(segmentName?: string | null): number {
-  if (!segmentName || segmentName === "All Adults") return 1.0;
+  if (!segmentName || segmentName === "All Adults" || segmentName === "General Market") return 1.0;
   return (AUDIENCE_SEGMENTS[segmentName] || { fraction: 1.0 }).fraction;
 }
 
 /**
  * Returns the in-scope universe in thousands.
- * Chains geo reduction THEN audience reduction.
- * National (98M) → Denver (870k) → Denver Auto Intenders (105k)
+ * Chains geo reduction → demo scale → audience reduction → ethnic overlay.
  */
-export function getUniverse(geo: string | string[] | null = "National", audience: string | null = "All Adults"): number {
+export function getUniverse(
+  geo: string | string[] | null = "National",
+  audience: string | null = "All Adults",
+  demo: string = "Adults 25-54",
+  ethnicOverlay: string | null = null,
+): number {
   const geoSize = geoUniverse(geo);
+  const dScale = demoScale(demo);
   const segFrac = audienceFraction(audience);
-  return Math.max(Math.round(geoSize * segFrac), 1);
+  const ethFrac = audienceFraction(ethnicOverlay);
+  return Math.max(Math.round(geoSize * dScale * segFrac * ethFrac), 1);
 }
 
 // ─── 1. Per-channel reach from budget ────────────────────────────────────────
@@ -159,16 +314,11 @@ export function deduplicatedReach(channelReaches: number[]): number {
   if (n === 0) return 0;
   if (n === 1) return active[0];
 
-  // Independence model: assumes no audience overlap
   let independenceReach = 1;
   for (const r of active) independenceReach *= (1 - r);
   independenceReach = 1 - independenceReach;
 
-  // Perfect correlation model: reach = max of any single channel
   const maxReach = Math.max(...active);
-
-  // Blend using average cross-channel correlation (RHO_BAR)
-  // At rho=0 → independence (highest reach), at rho=1 → max single channel
   const blended = independenceReach * (1 - RHO_BAR) + maxReach * RHO_BAR;
 
   return Math.min(Math.max(blended, 0), 0.95);
@@ -235,6 +385,51 @@ export function holisticReachCurveData(channels: Array<{ name: string; budget: n
   });
 }
 
+// ─── Daypart-aware impression calculation ────────────────────────────────────
+/**
+ * For Linear/Radio with a daypart split, compute a weighted-average effective CPM:
+ *   effCPM = budget / sum(budget_dp / cpm_dp)
+ * This drives both impressions and the Source-of-truth CPM shown in the breakdown.
+ *
+ * `daypartBudgetSplit` is { daypart -> percentage 0-100 }.
+ * `daypartRates` is { daypart -> CPM }. Falls back to flat CPM if no usable splits.
+ */
+export interface DaypartLine {
+  daypart: string;
+  pct: number;
+  budget: number;
+  cpm: number;
+  impressions: number;
+}
+
+export function computeDaypartLines(
+  totalBudget: number,
+  daypartBudgetSplit: Record<string, number> | undefined,
+  daypartRates: Record<string, number> | undefined,
+  fallbackCpm: number,
+): DaypartLine[] {
+  if (!daypartBudgetSplit || !daypartRates) return [];
+  const entries = Object.entries(daypartBudgetSplit).filter(([, pct]) => pct > 0);
+  if (entries.length === 0) return [];
+  const totalPct = entries.reduce((s, [, p]) => s + p, 0);
+  if (totalPct <= 0) return [];
+  return entries.map(([dp, pct]) => {
+    const normPct = (pct / totalPct) * 100;
+    const budget = (totalBudget * pct) / totalPct;
+    const cpm = daypartRates[dp] && daypartRates[dp] > 0 ? daypartRates[dp] : fallbackCpm;
+    const impressions = Math.round((budget / cpm) * 1000);
+    return { daypart: dp, pct: +normPct.toFixed(1), budget: Math.round(budget), cpm, impressions };
+  });
+}
+
+export function effectiveCpmFromDayparts(lines: DaypartLine[], fallback: number): number {
+  if (lines.length === 0) return fallback;
+  const totalBudget = lines.reduce((s, l) => s + l.budget, 0);
+  const totalImps = lines.reduce((s, l) => s + l.impressions, 0);
+  if (totalImps === 0) return fallback;
+  return +((totalBudget / totalImps) * 1000).toFixed(2);
+}
+
 // ─── 9. Per-channel metrics from allocation ──────────────────────────────────
 export interface ChannelMetrics {
   impressions: number;
@@ -244,26 +439,44 @@ export interface ChannelMetrics {
   cpm: number;
   attentionWeight: number;
   awi: number;
+  daypartLines?: DaypartLine[];
 }
 
-export function channelMetrics(channelName: string, budget: number, universeThousands: number, customCpm?: number): ChannelMetrics {
-  const cpm = customCpm ?? DEFAULT_CPMS[channelName] ?? 15;
-  const impressions = Math.round((budget / cpm) * 1000);
+export function channelMetrics(
+  channelName: string,
+  budget: number,
+  universeThousands: number,
+  customCpm?: number,
+  daypartBudgetSplit?: Record<string, number>,
+  daypartRates?: Record<string, number>,
+): ChannelMetrics {
+  const flatCpm = customCpm ?? DEFAULT_CPMS[channelName] ?? 15;
+
+  // Daypart-aware impression model (only if both splits + rates are provided)
+  const daypartLines = computeDaypartLines(budget, daypartBudgetSplit, daypartRates, flatCpm);
+  const effCpm = effectiveCpmFromDayparts(daypartLines, flatCpm);
+
+  const impressions =
+    daypartLines.length > 0
+      ? daypartLines.reduce((s, l) => s + l.impressions, 0)
+      : Math.round((budget / flatCpm) * 1000);
+
   const reachFraction = channelReach(channelName, budget);
-  // Cap reach count: you can't reach more unique people than you have impressions
   const modelReachCount = Math.round(reachFraction * universeThousands * 1000);
   const reachCount = Math.min(modelReachCount, impressions);
   const actualReachPct = reachCount / (universeThousands * 1000);
   const freq = reachCount > 0 ? +(impressions / reachCount).toFixed(1) : 0;
   const aw = ATTENTION_WEIGHTS[channelName] || 0.5;
+
   return {
     impressions,
     reach: reachCount,
     reachPct: +(actualReachPct * 100).toFixed(2),
     frequency: freq,
-    cpm,
+    cpm: effCpm,
     attentionWeight: aw,
     awi: Math.round(impressions * aw),
+    daypartLines: daypartLines.length > 0 ? daypartLines : undefined,
   };
 }
 
@@ -275,7 +488,7 @@ export interface PlanCalculation {
   effectiveReach3plus: number;
   avgFrequency: number;
   totalImpressions: number;
-  totalReach: number; // absolute deduplicated reach count
+  totalReach: number;
   totalAWI: number;
   naiveSumReachPct: number;
   shareOfVoice: Array<{ name: string; sov: number; awi: number }>;
@@ -285,20 +498,44 @@ export interface PlanCalculation {
   totalDedupReachPersons: number;
 }
 
+export interface CalcOptions {
+  customCpms?: Record<string, number>;
+  daypartBudgetSplits?: Record<string, Record<string, number>>; // channel -> daypart -> pct
+  daypartRates?: Record<string, Record<string, number>>;        // channel -> daypart -> cpm
+  ethnicOverlay?: string | null;
+}
+
 export function calculatePlan(
   allocations: ChannelAllocation[],
   targetDemo = "Adults 25-54",
   geo: string | string[] | null = "National",
   audience: string | null = "All Adults",
-  customCpms?: Record<string, number>,
+  customCpmsOrOptions?: Record<string, number> | CalcOptions,
 ): PlanCalculation {
-  const universe = getUniverse(geo, audience);
+  // Backward compat: the 5th arg used to be a plain customCpms record.
+  const opts: CalcOptions =
+    customCpmsOrOptions && typeof customCpmsOrOptions === "object" &&
+    ("daypartBudgetSplits" in customCpmsOrOptions ||
+      "daypartRates" in customCpmsOrOptions ||
+      "customCpms" in customCpmsOrOptions ||
+      "ethnicOverlay" in customCpmsOrOptions)
+      ? (customCpmsOrOptions as CalcOptions)
+      : { customCpms: customCpmsOrOptions as Record<string, number> | undefined };
+
+  const universe = getUniverse(geo, audience, targetDemo, opts.ethnicOverlay ?? null);
   const enabled = allocations.filter(a => a.enabled && a.budget > 0);
 
   const channelOutputs = enabled.map(ch => ({
     name: ch.channel,
     budget: ch.budget,
-    metrics: channelMetrics(ch.channel, ch.budget, universe, customCpms?.[ch.channel]),
+    metrics: channelMetrics(
+      ch.channel,
+      ch.budget,
+      universe,
+      opts.customCpms?.[ch.channel],
+      opts.daypartBudgetSplits?.[ch.channel],
+      opts.daypartRates?.[ch.channel],
+    ),
   }));
 
   const reaches = channelOutputs.map(c => c.metrics.reachPct / 100);
@@ -306,7 +543,6 @@ export function calculatePlan(
   const totalImpressions = channelOutputs.reduce((s, c) => s + c.metrics.impressions, 0);
   const totalAWI = channelOutputs.reduce((s, c) => s + c.metrics.awi, 0);
   const totalReachCount = Math.min(Math.round(dedupReach * universe * 1000), totalImpressions);
-  // Actual dedup reach fraction based on capped count
   const actualDedupFraction = totalReachCount / (universe * 1000);
   const ci = reachCI(actualDedupFraction);
 
@@ -316,17 +552,22 @@ export function calculatePlan(
     if (!geo || geo === "National") return "U.S.";
     if (Array.isArray(geo)) {
       if (geo.length <= 3) return geo.join(", ");
-      // Detect if entries look like ZIP codes (all digits, 5 chars)
       const areZips = geo.every(g => /^\d{5}$/.test(g));
       return areZips ? `${geo.length} ZIP codes` : `${geo.length} DMAs`;
     }
-    // Single string that may contain semicolons
     const parts = geo.split(";").map(s => s.trim()).filter(Boolean);
     if (parts.length <= 3) return parts.join(", ");
     const areZips = parts.every(g => /^\d{5}$/.test(g));
     return areZips ? `${parts.length} ZIP codes` : `${parts.length} DMAs`;
   })();
-  const audienceLabel = !audience || audience === "All Adults" ? targetDemo : audience;
+
+  // Build audience label: prefer ethnic overlay + demo, else audience or demo
+  const audienceLabel = (() => {
+    const eth = opts.ethnicOverlay && opts.ethnicOverlay !== "General Market" ? opts.ethnicOverlay : null;
+    if (eth) return `${eth} ${targetDemo}`;
+    if (audience && audience !== "All Adults" && audience !== "General Market") return audience;
+    return targetDemo;
+  })();
 
   return {
     totalDedupReachPct: ci.mid,
