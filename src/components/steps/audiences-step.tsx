@@ -8,9 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { AUDIENCE_TIERS, type AudienceTier, type AudienceItem } from "@/lib/schema";
-import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2 } from "lucide-react";
+import { AUDIENCE_TIERS, DEMO_OPTIONS, ETHNIC_OVERLAYS, type AudienceTier, type AudienceItem, type DemoOption, type EthnicOverlay } from "@/lib/schema";
+import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2, UserCircle2 } from "lucide-react";
 import { generateAudienceSuggestions } from "@/lib/audience-suggestions";
+import { getUniverse } from "@/lib/calculations";
 
 const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; description: string }> = {
   "High Intent": { icon: Zap, color: "bg-emerald-100 text-emerald-700", description: "Ready to buy or take action now" },
@@ -20,9 +21,28 @@ const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; descrip
 
 export function AudiencesStep() {
   const { state, updateAudiences, setStep } = usePlanner();
-  const { audiences, intake } = state;
+  const { audiences, intake, geo } = state;
   const [newInput, setNewInput] = useState("");
   const [newTier, setNewTier] = useState<AudienceTier>("High Intent");
+
+  const demo = audiences.demo || "Adults 25-54";
+  const ethnicOverlay = audiences.ethnicOverlay || "General Market";
+
+  // Live universe preview based on geo + demo + ethnic overlay
+  const geoParam = (() => {
+    const v = geo.geoValue;
+    if (!v) return "National" as const;
+    const parts = v.split(";").map(s => s.trim()).filter(Boolean);
+    return parts.length > 1 ? parts : (parts[0] || "National");
+  })();
+  const liveUniverseK = getUniverse(geoParam, "All Adults", demo, ethnicOverlay);
+  const geoLabel = !geo.geoValue ? "U.S." : (() => {
+    const parts = geo.geoValue.split(";").map(s => s.trim()).filter(Boolean);
+    if (parts.length <= 3) return parts.join(", ");
+    const areZips = parts.every(g => /^\d{5}$/.test(g));
+    return areZips ? `${parts.length} ZIP codes` : `${parts.length} DMAs`;
+  })();
+  const ethnicLabel = ethnicOverlay && ethnicOverlay !== "General Market" ? `${ethnicOverlay} ` : "";
 
   const suggestAudiences = () => {
     const vertical = intake.detected?.vertical || "default";
@@ -73,6 +93,62 @@ export function AudiencesStep() {
           </Button>
         </div>
       </div>
+
+      {/* Demographics & Ethnic Overlay */}
+      <Card className="p-4 card-elevated space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-100 text-amber-700">
+            <UserCircle2 className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-display font-bold">Demographics</h3>
+            <p className="text-xs text-muted-foreground">Primary universe demo + optional ethnic overlay.</p>
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs uppercase font-semibold text-muted-foreground">Age / Sex Demo</Label>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {DEMO_OPTIONS.map(d => (
+              <Badge
+                key={d}
+                variant={demo === d ? "default" : "outline"}
+                className="cursor-pointer text-[11px]"
+                onClick={() => updateAudiences({ demo: d as DemoOption })}
+              >
+                {d}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs uppercase font-semibold text-muted-foreground">Ethnic Overlay</Label>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {ETHNIC_OVERLAYS.map(e => (
+              <Badge
+                key={e}
+                variant={ethnicOverlay === e ? "default" : "outline"}
+                className="cursor-pointer text-[11px]"
+                onClick={() => updateAudiences({ ethnicOverlay: e as EthnicOverlay })}
+              >
+                {e}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-1 px-3 py-2 rounded-md bg-primary/5 border border-primary/10">
+          <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="text-xs">
+            Universe:{" "}
+            <span className="font-bold text-foreground">
+              ~{liveUniverseK >= 1000 ? `${(liveUniverseK / 1000).toFixed(1)}M` : `${liveUniverseK}K`}{" "}
+              {ethnicLabel}{demo} in {geoLabel}
+            </span>
+          </span>
+        </div>
+      </Card>
 
       <div className="space-y-3">
         {AUDIENCE_TIERS.map(tier => {

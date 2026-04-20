@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { usePlanner } from "@/lib/planner-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { ReachCurvesChart } from "@/components/reach-curves-chart";
 import type { PlanOption, ConfidenceLevel, ChannelAllocation, ShareOfVoice, HistoricalPerformance, ExpectedRange, Requirement } from "@/lib/schema";
 import { calculatePlan, channelMetrics, getUniverse, DEFAULT_CPMS, UNIVERSE, AUDIENCE_SEGMENTS } from "@/lib/calculations";
 import { CHANNEL_CTR, CHANNEL_CONV_RATE } from "@/lib/channel-ctr";
-import { DEFAULT_CONFIGS, getConfigCPM } from "@/lib/media-channel-defaults";
+import { DEFAULT_CONFIGS, getConfigCPM, getDaypartRateMap } from "@/lib/media-channel-defaults";
 import { CHANNELS } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
 import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
@@ -51,17 +51,63 @@ function buildCustomCpms(): Record<string, number> {
   return cpms;
 }
 
+function buildDaypartRateMap(): Record<string, Record<string, number>> {
+  const map: Record<string, Record<string, number>> = {};
+  for (const ch of CHANNELS) {
+    const dpMap = getDaypartRateMap(DEFAULT_CONFIGS[ch]);
+    if (dpMap) map[ch] = dpMap;
+  }
+  return map;
+}
+
 const CUSTOM_CPMS = buildCustomCpms();
+const DAYPART_RATES = buildDaypartRateMap();
+
+function buildDaypartSplits(allocs: ChannelAllocation[]): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  for (const a of allocs) {
+    if (a.daypartBudgetSplit && Object.keys(a.daypartBudgetSplit).length > 0) {
+      out[a.channel] = a.daypartBudgetSplit;
+    }
+  }
+  return out;
+}
 
 function estimateMetrics(alloc: ChannelAllocation, universeK: number) {
   const cpm = CUSTOM_CPMS[alloc.channel];
-  const m = channelMetrics(alloc.channel, alloc.budget, universeK, cpm);
-  return { impressions: m.impressions, reach: m.reach, frequency: m.frequency, cpm: m.cpm, source: cpm ? "Rate Card" as const : "Benchmark" as const };
+  const m = channelMetrics(
+    alloc.channel,
+    alloc.budget,
+    universeK,
+    cpm,
+    alloc.daypartBudgetSplit,
+    DAYPART_RATES[alloc.channel],
+  );
+  return {
+    impressions: m.impressions,
+    reach: m.reach,
+    frequency: m.frequency,
+    cpm: m.cpm,
+    daypartLines: m.daypartLines,
+    source: cpm ? "Rate Card" as const : "Benchmark" as const,
+  };
 }
 
-function generateSOV(allocs: ChannelAllocation[], _budget: number, geo?: string | string[] | null, audience?: string | null): ShareOfVoice[] {
+function generateSOV(
+  allocs: ChannelAllocation[],
+  _budget: number,
+  geo?: string | string[] | null,
+  audience?: string | null,
+  demo: string = "Adults 25-54",
+  ethnicOverlay: string | null = null,
+): ShareOfVoice[] {
   const enabled = allocs.filter(a => a.enabled && a.budget > 0);
-  const plan = calculatePlan(allocs, "Adults 25-54", geo, audience, CUSTOM_CPMS);
+  const plan = calculatePlan(allocs, demo, geo, audience, {
+    customCpms: CUSTOM_CPMS,
+    daypartBudgetSplits: buildDaypartSplits(allocs),
+    daypartRates: DAYPART_RATES,
+    ethnicOverlay,
+  });
   const sovMap = new Map(plan.shareOfVoice.map(s => [s.name, s]));
 
   return enabled.map(a => {
@@ -114,13 +160,20 @@ function generateFallbackPlans(state: any): PlanOption[] {
 
   const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
   const audienceParam = extractAudience(audiences.audiences || []);
+  const demoParam = audiences.demo || "Adults 25-54";
+  const ethnicParam = audiences.ethnicOverlay && audiences.ethnicOverlay !== "General Market" ? audiences.ethnicOverlay : null;
   const hasAnalyzedUrl = intake.analyzed;
   const isExistingClient = state.planningPath === "existing";
 
   const buildPlan = (name: "Conservative" | "Balanced" | "Aggressive", multiplier: number, conf: ConfidenceLevel): PlanOption => {
     const allocs = makeAllocs(multiplier);
     const totalBudget = Math.round(budget * multiplier);
-    const calc = calculatePlan(allocs, "Adults 25-54", geoParam, audienceParam, CUSTOM_CPMS);
+    const calc = calculatePlan(allocs, demoParam, geoParam, audienceParam, {
+      customCpms: CUSTOM_CPMS,
+      daypartBudgetSplits: buildDaypartSplits(allocs),
+      daypartRates: DAYPART_RATES,
+      ethnicOverlay: ethnicParam,
+    });
     const enabled = allocs.filter(a => a.enabled && a.budget > 0);
 
     // Compute clicks from CTR benchmarks
@@ -193,7 +246,7 @@ function generateFallbackPlans(state: any): PlanOption[] {
       goal, kpis: goals.kpis || [], geoSummary: geo.geoValue || "TBD",
       audienceSummary: `${audiences.audiences.length} audience segments`,
       allocations: allocs, expectedRanges, confidence: conf, rationale, requirements, totalBudget,
-      shareOfVoice: generateSOV(allocs, totalBudget, geoParam, audienceParam),
+      shareOfVoice: generateSOV(allocs, totalBudget, geoParam, audienceParam, demoParam, ethnicParam),
     };
   };
 
@@ -267,8 +320,19 @@ export function ReviewStep() {
   /* ── totals via calculation engine ── */
   const geoParam2 = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
   const audienceParam2 = extractAudience(state.audiences?.audiences || []);
-  const universeK = getUniverse(geoParam2, audienceParam2);
-  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam2, audienceParam2, CUSTOM_CPMS) : null;
+  const demoParam2 = state.audiences?.demo || "Adults 25-54";
+  const ethnicParam2 = state.audiences?.ethnicOverlay && state.audiences.ethnicOverlay !== "General Market"
+    ? state.audiences.ethnicOverlay
+    : null;
+  const universeK = getUniverse(geoParam2, audienceParam2, demoParam2, ethnicParam2);
+  const planCalc = activePlan
+    ? calculatePlan(activePlan.allocations, demoParam2, geoParam2, audienceParam2, {
+        customCpms: CUSTOM_CPMS,
+        daypartBudgetSplits: buildDaypartSplits(activePlan.allocations),
+        daypartRates: DAYPART_RATES,
+        ethnicOverlay: ethnicParam2,
+      })
+    : null;
   const totals = {
     impressions: planCalc?.totalImpressions ?? 0,
     reach: planCalc?.totalReach ?? 0,
@@ -499,28 +563,46 @@ export function ReviewStep() {
                             const m = estimateMetrics(ch, universeK);
                             const hasHistory = historicalData.some(h => matchesHistoricalPlannerChannel(ch.channel, h.channel));
                             return (
-                              <TableRow key={ch.channel}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    {(() => { const I = CHANNEL_ICON_MAP[ch.channel] || Monitor; return <I className="w-3.5 h-3.5 text-muted-foreground" />; })()}
-                                    <span className="font-medium text-sm">{ch.channel}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-semibold">${ch.budget.toLocaleString()}</TableCell>
-                                <TableCell className="text-right">{ch.percentage}%</TableCell>
-                                <TableCell className="text-right">{fmt(m.impressions)}</TableCell>
-                                <TableCell className="text-right">{fmt(m.reach)}</TableCell>
-                                <TableCell className="text-right">{m.frequency}x</TableCell>
-                                <TableCell className="text-right">${m.cpm}</TableCell>
-                                <TableCell className="text-center">
-                                  {hasHistory
-                                    ? <Badge variant="outline" className="text-[9px] text-green-600 border-green-300">Historical</Badge>
-                                    : m.source === "Rate Card"
-                                    ? <Badge variant="outline" className="text-[9px] text-blue-600 border-blue-300">Rate Card</Badge>
-                                    : <Badge variant="outline" className="text-[9px] text-muted-foreground">Benchmark</Badge>
-                                  }
-                                </TableCell>
-                              </TableRow>
+                              <Fragment key={ch.channel}>
+                                <TableRow>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      {(() => { const I = CHANNEL_ICON_MAP[ch.channel] || Monitor; return <I className="w-3.5 h-3.5 text-muted-foreground" />; })()}
+                                      <span className="font-medium text-sm">{ch.channel}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold">${ch.budget.toLocaleString()}</TableCell>
+                                  <TableCell className="text-right">{ch.percentage}%</TableCell>
+                                  <TableCell className="text-right">{fmt(m.impressions)}</TableCell>
+                                  <TableCell className="text-right">{fmt(m.reach)}</TableCell>
+                                  <TableCell className="text-right">{m.frequency}x</TableCell>
+                                  <TableCell className="text-right">${m.cpm}</TableCell>
+                                  <TableCell className="text-center">
+                                    {hasHistory
+                                      ? <Badge variant="outline" className="text-[9px] text-green-600 border-green-300">Historical</Badge>
+                                      : m.source === "Rate Card"
+                                      ? <Badge variant="outline" className="text-[9px] text-blue-600 border-blue-300">Rate Card</Badge>
+                                      : <Badge variant="outline" className="text-[9px] text-muted-foreground">Benchmark</Badge>
+                                    }
+                                  </TableCell>
+                                </TableRow>
+                                {(m.daypartLines || []).map(dp => (
+                                  <TableRow key={`${ch.channel}-${dp.daypart}`} className="bg-muted/20">
+                                    <TableCell className="pl-8">
+                                      <span className="text-xs text-muted-foreground">└ {dp.daypart}</span>
+                                    </TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">${dp.budget.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">{dp.pct}%</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">{fmt(dp.impressions)}</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">—</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">—</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">${dp.cpm.toFixed(2)}</TableCell>
+                                    <TableCell className="text-center">
+                                      <Badge variant="outline" className="text-[9px] text-muted-foreground">Daypart</Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </Fragment>
                             );
                           })}
                           {/* Totals row */}

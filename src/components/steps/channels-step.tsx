@@ -191,8 +191,26 @@ export function ChannelsStep() {
     const updated = channels.allocations.map((allocation) => {
       if (allocation.channel !== channel) return allocation;
       const current = allocation.dayparts || [];
-      const next = current.includes(daypart) ? current.filter((item) => item !== daypart) : [...current, daypart];
-      return { ...allocation, dayparts: next };
+      const isOn = current.includes(daypart);
+      const next = isOn ? current.filter((item) => item !== daypart) : [...current, daypart];
+      // Reset budget split to equal across the new selection
+      const split: Record<string, number> = {};
+      const equal = next.length > 0 ? Math.round(100 / next.length) : 0;
+      next.forEach((dp, i) => {
+        // Make last entry absorb rounding remainder so total = 100
+        split[dp] = i === next.length - 1 ? 100 - equal * (next.length - 1) : equal;
+      });
+      return { ...allocation, dayparts: next, daypartBudgetSplit: next.length ? split : undefined };
+    });
+    updateChannels({ allocations: updated });
+  };
+
+  const setDaypartSplit = (channel: Channel, daypart: Daypart, pct: number) => {
+    const updated = channels.allocations.map((allocation) => {
+      if (allocation.channel !== channel) return allocation;
+      const split = { ...(allocation.daypartBudgetSplit || {}) };
+      split[daypart] = Math.max(0, Math.min(100, Math.round(pct)));
+      return { ...allocation, daypartBudgetSplit: split };
     });
     updateChannels({ allocations: updated });
   };
@@ -354,19 +372,53 @@ export function ChannelsStep() {
                         )}
 
                         {isExpanded && CHANNELS_WITH_DAYPARTS.includes(alloc.channel as Channel) && (
-                          <div className="mt-2 animate-fade-in">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Dayparts</p>
-                            <div className="flex gap-1.5 flex-wrap">
-                              {DAYPARTS.map((daypart) => (
-                                <label key={daypart} className="flex items-center gap-1 text-xs cursor-pointer">
-                                  <Checkbox
-                                    checked={(alloc.dayparts || []).includes(daypart)}
-                                    onCheckedChange={() => toggleDaypart(alloc.channel as Channel, daypart)}
-                                  />
-                                  {daypart}
-                                </label>
-                              ))}
+                          <div className="mt-2 animate-fade-in space-y-3">
+                            <div>
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Dayparts</p>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {DAYPARTS.map((daypart) => (
+                                  <label key={daypart} className="flex items-center gap-1 text-xs cursor-pointer">
+                                    <Checkbox
+                                      checked={(alloc.dayparts || []).includes(daypart)}
+                                      onCheckedChange={() => toggleDaypart(alloc.channel as Channel, daypart)}
+                                    />
+                                    {daypart}
+                                  </label>
+                                ))}
+                              </div>
                             </div>
+
+                            {(alloc.dayparts?.length || 0) > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-[10px] font-semibold text-muted-foreground uppercase">Budget Split</p>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Total: {Object.values(alloc.daypartBudgetSplit || {}).reduce((s, v) => s + v, 0)}%
+                                  </span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {(alloc.dayparts || []).map((dp) => {
+                                    const pct = alloc.daypartBudgetSplit?.[dp] ?? 0;
+                                    const dpBudget = Math.round(alloc.budget * (pct / 100));
+                                    return (
+                                      <div key={dp} className="flex items-center gap-2">
+                                        <span className="text-[10px] w-32 truncate text-muted-foreground">{dp}</span>
+                                        <Slider
+                                          value={[pct]}
+                                          onValueChange={([v]) => setDaypartSplit(alloc.channel as Channel, dp, v)}
+                                          min={0}
+                                          max={100}
+                                          step={1}
+                                          className="flex-1"
+                                        />
+                                        <span className="text-[10px] font-semibold w-10 text-right">{pct}%</span>
+                                        <span className="text-[10px] text-muted-foreground w-16 text-right">${dpBudget.toLocaleString()}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

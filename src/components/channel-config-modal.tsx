@@ -58,6 +58,7 @@ export interface PublisherEntry {
   name: string;
   rate: number;
   source?: string;
+  isAggregator?: boolean;
 }
 
 export interface ChannelConfig {
@@ -264,32 +265,54 @@ export default function ChannelConfigModal({ channel, open, onOpenChange, config
               {isBroadcast ? "Networks" : "Publishers / Inventory"}
             </Label>
             {local.publishers.map((pub) => (
-              <div key={pub.id} className="flex items-start gap-2">
-                <Input
-                  placeholder="Name (e.g., ESPN, NYTimes.com)"
-                  className="h-9 text-xs flex-1"
-                  value={pub.name}
-                  onChange={(e) => updatePublisher(pub.id, { name: e.target.value })}
-                />
-                <div>
+              <div key={pub.id} className="space-y-1">
+                <div className="flex items-start gap-2">
                   <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Rate"
-                    className="h-9 text-xs w-28"
-                    value={pub.rate || ""}
-                    onChange={(e) => updatePublisher(pub.id, { rate: parseFloat(e.target.value) || 0 })}
+                    placeholder={pub.isAggregator ? "Aggregator name (e.g., Vistar, SSP)" : "Name (e.g., ESPN, NYTimes.com)"}
+                    className="h-9 text-xs flex-1"
+                    value={pub.name}
+                    onChange={(e) => updatePublisher(pub.id, { name: e.target.value })}
                   />
-                  <SourceTag source={pub.source} />
+                  <div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder={pub.isAggregator ? "Blended CPM" : "Rate"}
+                      className="h-9 text-xs w-28"
+                      value={pub.rate || ""}
+                      onChange={(e) => updatePublisher(pub.id, { rate: parseFloat(e.target.value) || 0 })}
+                    />
+                    <SourceTag source={pub.source} />
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => removePublisher(pub.id)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => removePublisher(pub.id)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                {pub.isAggregator && (
+                  <Badge variant="outline" className="text-[9px] ml-1">
+                    Aggregator — sub-publisher breakdown not available
+                  </Badge>
+                )}
               </div>
             ))}
-            <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={addPublisher}>
-              <Plus className="w-3.5 h-3.5" /> Add {isBroadcast ? "Network" : "Publisher"}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={addPublisher}>
+                <Plus className="w-3.5 h-3.5" /> Add {isBroadcast ? "Network" : "Publisher"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() =>
+                  setLocal((p) => ({
+                    ...p,
+                    publishers: [...p.publishers, { id: uid(), name: "", rate: 0, isAggregator: true }],
+                  }))
+                }
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Aggregator
+              </Button>
+            </div>
           </section>
 
           {/* OOH Verticals & Types */}

@@ -13,7 +13,7 @@ const defaultIntake: IntakeState = {
 
 const defaultGoals: GoalsState = { goal: null, kpis: [], channelMixMode: "expand" };
 const defaultGeo: GeoState = { geoType: null, geoValue: "", strategies: [] };
-const defaultAudiences: AudiencesState = { audiences: [], conquestEnabled: false };
+const defaultAudiences: AudiencesState = { audiences: [], conquestEnabled: false, demo: "Adults 25-54", ethnicOverlay: "General Market" };
 const defaultChannels: ChannelsState = { allocations: [], locked: true, activePreset: null };
 const defaultQuickStart: QuickStartState = { budget: null, goal: null, websiteUrl: "" };
 
