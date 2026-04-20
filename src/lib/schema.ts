@@ -120,9 +120,22 @@ export interface AudienceItem {
   tier: AudienceTier;
 }
 
+export const DEMO_OPTIONS = [
+  "Adults 18-34", "Adults 18-49", "Adults 25-54", "Adults 35-64",
+  "Adults 55+", "Women 18-49", "Men 18-49",
+] as const;
+export type DemoOption = typeof DEMO_OPTIONS[number];
+
+export const ETHNIC_OVERLAYS = [
+  "General Market", "Hispanic/Latino", "African American", "Asian American",
+] as const;
+export type EthnicOverlay = typeof ETHNIC_OVERLAYS[number];
+
 export interface AudiencesState {
   audiences: AudienceItem[];
   conquestEnabled: boolean;
+  demo?: DemoOption;
+  ethnicOverlay?: EthnicOverlay;
 }
 
 export interface ChannelAllocation {
@@ -133,6 +146,8 @@ export interface ChannelAllocation {
   oohVerticals?: OOHVertical[];
   oohTypes?: OOHType[];
   dayparts?: Daypart[];
+  // Map of daypart name → percentage of this channel's budget (0-100)
+  daypartBudgetSplit?: Record<string, number>;
 }
 
 export interface ChannelsState {
