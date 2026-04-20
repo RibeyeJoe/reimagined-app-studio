@@ -255,3 +255,16 @@ export function getConfigCPM(config: ChannelConfig | undefined): number | null {
   const cpmEntry = config.pricing.find(p => p.model === "CPM" && p.rate > 0);
   return cpmEntry?.rate ?? null;
 }
+
+/**
+ * Build a { daypart -> CPM } map from a channel config's daypartRates.
+ * Returns null if the config has no usable daypart rates.
+ */
+export function getDaypartRateMap(config: ChannelConfig | undefined): Record<string, number> | null {
+  if (!config?.daypartRates?.length) return null;
+  const map: Record<string, number> = {};
+  for (const dp of config.daypartRates) {
+    if (dp.rate > 0) map[dp.daypart] = dp.rate;
+  }
+  return Object.keys(map).length > 0 ? map : null;
+}
