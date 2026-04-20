@@ -246,7 +246,7 @@ function generateFallbackPlans(state: any): PlanOption[] {
       goal, kpis: goals.kpis || [], geoSummary: geo.geoValue || "TBD",
       audienceSummary: `${audiences.audiences.length} audience segments`,
       allocations: allocs, expectedRanges, confidence: conf, rationale, requirements, totalBudget,
-      shareOfVoice: generateSOV(allocs, totalBudget, geoParam, audienceParam),
+      shareOfVoice: generateSOV(allocs, totalBudget, geoParam, audienceParam, demoParam, ethnicParam),
     };
   };
 
