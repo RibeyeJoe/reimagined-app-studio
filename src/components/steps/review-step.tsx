@@ -320,8 +320,19 @@ export function ReviewStep() {
   /* ── totals via calculation engine ── */
   const geoParam2 = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
   const audienceParam2 = extractAudience(state.audiences?.audiences || []);
-  const universeK = getUniverse(geoParam2, audienceParam2);
-  const planCalc = activePlan ? calculatePlan(activePlan.allocations, "Adults 25-54", geoParam2, audienceParam2, CUSTOM_CPMS) : null;
+  const demoParam2 = state.audiences?.demo || "Adults 25-54";
+  const ethnicParam2 = state.audiences?.ethnicOverlay && state.audiences.ethnicOverlay !== "General Market"
+    ? state.audiences.ethnicOverlay
+    : null;
+  const universeK = getUniverse(geoParam2, audienceParam2, demoParam2, ethnicParam2);
+  const planCalc = activePlan
+    ? calculatePlan(activePlan.allocations, demoParam2, geoParam2, audienceParam2, {
+        customCpms: CUSTOM_CPMS,
+        daypartBudgetSplits: buildDaypartSplits(activePlan.allocations),
+        daypartRates: DAYPART_RATES,
+        ethnicOverlay: ethnicParam2,
+      })
+    : null;
   const totals = {
     impressions: planCalc?.totalImpressions ?? 0,
     reach: planCalc?.totalReach ?? 0,
