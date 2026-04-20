@@ -8,9 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { AUDIENCE_TIERS, type AudienceTier, type AudienceItem } from "@/lib/schema";
-import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2 } from "lucide-react";
+import { AUDIENCE_TIERS, DEMO_OPTIONS, ETHNIC_OVERLAYS, type AudienceTier, type AudienceItem, type DemoOption, type EthnicOverlay } from "@/lib/schema";
+import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2, UserCircle2 } from "lucide-react";
 import { generateAudienceSuggestions } from "@/lib/audience-suggestions";
+import { getUniverse } from "@/lib/calculations";
 
 const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; description: string }> = {
   "High Intent": { icon: Zap, color: "bg-emerald-100 text-emerald-700", description: "Ready to buy or take action now" },
