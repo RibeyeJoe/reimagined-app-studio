@@ -21,9 +21,28 @@ const TIER_META: Record<AudienceTier, { icon: typeof Zap; color: string; descrip
 
 export function AudiencesStep() {
   const { state, updateAudiences, setStep } = usePlanner();
-  const { audiences, intake } = state;
+  const { audiences, intake, geo } = state;
   const [newInput, setNewInput] = useState("");
   const [newTier, setNewTier] = useState<AudienceTier>("High Intent");
+
+  const demo = audiences.demo || "Adults 25-54";
+  const ethnicOverlay = audiences.ethnicOverlay || "General Market";
+
+  // Live universe preview based on geo + demo + ethnic overlay
+  const geoParam = (() => {
+    const v = geo.geoValue;
+    if (!v) return "National" as const;
+    const parts = v.split(";").map(s => s.trim()).filter(Boolean);
+    return parts.length > 1 ? parts : (parts[0] || "National");
+  })();
+  const liveUniverseK = getUniverse(geoParam, "All Adults", demo, ethnicOverlay);
+  const geoLabel = !geo.geoValue ? "U.S." : (() => {
+    const parts = geo.geoValue.split(";").map(s => s.trim()).filter(Boolean);
+    if (parts.length <= 3) return parts.join(", ");
+    const areZips = parts.every(g => /^\d{5}$/.test(g));
+    return areZips ? `${parts.length} ZIP codes` : `${parts.length} DMAs`;
+  })();
+  const ethnicLabel = ethnicOverlay && ethnicOverlay !== "General Market" ? `${ethnicOverlay} ` : "";
 
   const suggestAudiences = () => {
     const vertical = intake.detected?.vertical || "default";
