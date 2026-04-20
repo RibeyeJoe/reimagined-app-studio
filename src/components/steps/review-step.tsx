@@ -93,9 +93,21 @@ function estimateMetrics(alloc: ChannelAllocation, universeK: number) {
   };
 }
 
-function generateSOV(allocs: ChannelAllocation[], _budget: number, geo?: string | string[] | null, audience?: string | null): ShareOfVoice[] {
+function generateSOV(
+  allocs: ChannelAllocation[],
+  _budget: number,
+  geo?: string | string[] | null,
+  audience?: string | null,
+  demo: string = "Adults 25-54",
+  ethnicOverlay: string | null = null,
+): ShareOfVoice[] {
   const enabled = allocs.filter(a => a.enabled && a.budget > 0);
-  const plan = calculatePlan(allocs, "Adults 25-54", geo, audience, CUSTOM_CPMS);
+  const plan = calculatePlan(allocs, demo, geo, audience, {
+    customCpms: CUSTOM_CPMS,
+    daypartBudgetSplits: buildDaypartSplits(allocs),
+    daypartRates: DAYPART_RATES,
+    ethnicOverlay,
+  });
   const sovMap = new Map(plan.shareOfVoice.map(s => [s.name, s]));
 
   return enabled.map(a => {
