@@ -94,6 +94,62 @@ export function AudiencesStep() {
         </div>
       </div>
 
+      {/* Demographics & Ethnic Overlay */}
+      <Card className="p-4 card-elevated space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-100 text-amber-700">
+            <UserCircle2 className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-display font-bold">Demographics</h3>
+            <p className="text-xs text-muted-foreground">Primary universe demo + optional ethnic overlay.</p>
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs uppercase font-semibold text-muted-foreground">Age / Sex Demo</Label>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {DEMO_OPTIONS.map(d => (
+              <Badge
+                key={d}
+                variant={demo === d ? "default" : "outline"}
+                className="cursor-pointer text-[11px]"
+                onClick={() => updateAudiences({ demo: d as DemoOption })}
+              >
+                {d}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs uppercase font-semibold text-muted-foreground">Ethnic Overlay</Label>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {ETHNIC_OVERLAYS.map(e => (
+              <Badge
+                key={e}
+                variant={ethnicOverlay === e ? "default" : "outline"}
+                className="cursor-pointer text-[11px]"
+                onClick={() => updateAudiences({ ethnicOverlay: e as EthnicOverlay })}
+              >
+                {e}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-1 px-3 py-2 rounded-md bg-primary/5 border border-primary/10">
+          <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="text-xs">
+            Universe:{" "}
+            <span className="font-bold text-foreground">
+              ~{liveUniverseK >= 1000 ? `${(liveUniverseK / 1000).toFixed(1)}M` : `${liveUniverseK}K`}{" "}
+              {ethnicLabel}{demo} in {geoLabel}
+            </span>
+          </span>
+        </div>
+      </Card>
+
       <div className="space-y-3">
         {AUDIENCE_TIERS.map(tier => {
           const meta = TIER_META[tier];
