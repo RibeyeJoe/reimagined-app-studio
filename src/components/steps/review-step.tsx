@@ -563,28 +563,46 @@ export function ReviewStep() {
                             const m = estimateMetrics(ch, universeK);
                             const hasHistory = historicalData.some(h => matchesHistoricalPlannerChannel(ch.channel, h.channel));
                             return (
-                              <TableRow key={ch.channel}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    {(() => { const I = CHANNEL_ICON_MAP[ch.channel] || Monitor; return <I className="w-3.5 h-3.5 text-muted-foreground" />; })()}
-                                    <span className="font-medium text-sm">{ch.channel}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-semibold">${ch.budget.toLocaleString()}</TableCell>
-                                <TableCell className="text-right">{ch.percentage}%</TableCell>
-                                <TableCell className="text-right">{fmt(m.impressions)}</TableCell>
-                                <TableCell className="text-right">{fmt(m.reach)}</TableCell>
-                                <TableCell className="text-right">{m.frequency}x</TableCell>
-                                <TableCell className="text-right">${m.cpm}</TableCell>
-                                <TableCell className="text-center">
-                                  {hasHistory
-                                    ? <Badge variant="outline" className="text-[9px] text-green-600 border-green-300">Historical</Badge>
-                                    : m.source === "Rate Card"
-                                    ? <Badge variant="outline" className="text-[9px] text-blue-600 border-blue-300">Rate Card</Badge>
-                                    : <Badge variant="outline" className="text-[9px] text-muted-foreground">Benchmark</Badge>
-                                  }
-                                </TableCell>
-                              </TableRow>
+                              <Fragment key={ch.channel}>
+                                <TableRow>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      {(() => { const I = CHANNEL_ICON_MAP[ch.channel] || Monitor; return <I className="w-3.5 h-3.5 text-muted-foreground" />; })()}
+                                      <span className="font-medium text-sm">{ch.channel}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold">${ch.budget.toLocaleString()}</TableCell>
+                                  <TableCell className="text-right">{ch.percentage}%</TableCell>
+                                  <TableCell className="text-right">{fmt(m.impressions)}</TableCell>
+                                  <TableCell className="text-right">{fmt(m.reach)}</TableCell>
+                                  <TableCell className="text-right">{m.frequency}x</TableCell>
+                                  <TableCell className="text-right">${m.cpm}</TableCell>
+                                  <TableCell className="text-center">
+                                    {hasHistory
+                                      ? <Badge variant="outline" className="text-[9px] text-green-600 border-green-300">Historical</Badge>
+                                      : m.source === "Rate Card"
+                                      ? <Badge variant="outline" className="text-[9px] text-blue-600 border-blue-300">Rate Card</Badge>
+                                      : <Badge variant="outline" className="text-[9px] text-muted-foreground">Benchmark</Badge>
+                                    }
+                                  </TableCell>
+                                </TableRow>
+                                {(m.daypartLines || []).map(dp => (
+                                  <TableRow key={`${ch.channel}-${dp.daypart}`} className="bg-muted/20">
+                                    <TableCell className="pl-8">
+                                      <span className="text-xs text-muted-foreground">└ {dp.daypart}</span>
+                                    </TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">${dp.budget.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">{dp.pct}%</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">{fmt(dp.impressions)}</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">—</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">—</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">${dp.cpm.toFixed(2)}</TableCell>
+                                    <TableCell className="text-center">
+                                      <Badge variant="outline" className="text-[9px] text-muted-foreground">Daypart</Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </Fragment>
                             );
                           })}
                           {/* Totals row */}
