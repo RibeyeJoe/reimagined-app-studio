@@ -372,19 +372,53 @@ export function ChannelsStep() {
                         )}
 
                         {isExpanded && CHANNELS_WITH_DAYPARTS.includes(alloc.channel as Channel) && (
-                          <div className="mt-2 animate-fade-in">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Dayparts</p>
-                            <div className="flex gap-1.5 flex-wrap">
-                              {DAYPARTS.map((daypart) => (
-                                <label key={daypart} className="flex items-center gap-1 text-xs cursor-pointer">
-                                  <Checkbox
-                                    checked={(alloc.dayparts || []).includes(daypart)}
-                                    onCheckedChange={() => toggleDaypart(alloc.channel as Channel, daypart)}
-                                  />
-                                  {daypart}
-                                </label>
-                              ))}
+                          <div className="mt-2 animate-fade-in space-y-3">
+                            <div>
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Dayparts</p>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {DAYPARTS.map((daypart) => (
+                                  <label key={daypart} className="flex items-center gap-1 text-xs cursor-pointer">
+                                    <Checkbox
+                                      checked={(alloc.dayparts || []).includes(daypart)}
+                                      onCheckedChange={() => toggleDaypart(alloc.channel as Channel, daypart)}
+                                    />
+                                    {daypart}
+                                  </label>
+                                ))}
+                              </div>
                             </div>
+
+                            {(alloc.dayparts?.length || 0) > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-[10px] font-semibold text-muted-foreground uppercase">Budget Split</p>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Total: {Object.values(alloc.daypartBudgetSplit || {}).reduce((s, v) => s + v, 0)}%
+                                  </span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {(alloc.dayparts || []).map((dp) => {
+                                    const pct = alloc.daypartBudgetSplit?.[dp] ?? 0;
+                                    const dpBudget = Math.round(alloc.budget * (pct / 100));
+                                    return (
+                                      <div key={dp} className="flex items-center gap-2">
+                                        <span className="text-[10px] w-32 truncate text-muted-foreground">{dp}</span>
+                                        <Slider
+                                          value={[pct]}
+                                          onValueChange={([v]) => setDaypartSplit(alloc.channel as Channel, dp, v)}
+                                          min={0}
+                                          max={100}
+                                          step={1}
+                                          className="flex-1"
+                                        />
+                                        <span className="text-[10px] font-semibold w-10 text-right">{pct}%</span>
+                                        <span className="text-[10px] text-muted-foreground w-16 text-right">${dpBudget.toLocaleString()}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
