@@ -160,13 +160,20 @@ function generateFallbackPlans(state: any): PlanOption[] {
 
   const geoParam = state.geo?.geoValue ? parseDMAs(state.geo.geoValue) : "National";
   const audienceParam = extractAudience(audiences.audiences || []);
+  const demoParam = audiences.demo || "Adults 25-54";
+  const ethnicParam = audiences.ethnicOverlay && audiences.ethnicOverlay !== "General Market" ? audiences.ethnicOverlay : null;
   const hasAnalyzedUrl = intake.analyzed;
   const isExistingClient = state.planningPath === "existing";
 
   const buildPlan = (name: "Conservative" | "Balanced" | "Aggressive", multiplier: number, conf: ConfidenceLevel): PlanOption => {
     const allocs = makeAllocs(multiplier);
     const totalBudget = Math.round(budget * multiplier);
-    const calc = calculatePlan(allocs, "Adults 25-54", geoParam, audienceParam, CUSTOM_CPMS);
+    const calc = calculatePlan(allocs, demoParam, geoParam, audienceParam, {
+      customCpms: CUSTOM_CPMS,
+      daypartBudgetSplits: buildDaypartSplits(allocs),
+      daypartRates: DAYPART_RATES,
+      ethnicOverlay: ethnicParam,
+    });
     const enabled = allocs.filter(a => a.enabled && a.budget > 0);
 
     // Compute clicks from CTR benchmarks
