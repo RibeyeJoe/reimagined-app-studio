@@ -17,7 +17,7 @@ import { calculatePlan, channelMetrics, getUniverse, DEFAULT_CPMS, UNIVERSE, AUD
 import { CHANNEL_CTR, CHANNEL_CONV_RATE } from "@/lib/channel-ctr";
 import { DEFAULT_CONFIGS, getConfigCPM, getDaypartRateMap } from "@/lib/media-channel-defaults";
 import { CHANNELS } from "@/lib/schema";
-import { DEFAULT_CHANNEL_MIX } from "@/lib/benchmarks";
+import { DEFAULT_CHANNEL_MIX, CHANNEL_META } from "@/lib/benchmarks";
 import { expandHistoricalChannels, matchesHistoricalPlannerChannel } from "@/lib/channel-mapping";
 import {
   ArrowLeft, Sparkles, Save, CheckCircle2,
@@ -224,6 +224,16 @@ function generateFallbackPlans(state: any): PlanOption[] {
 
     // Dynamic requirements
     const requirements: Requirement[] = [];
+    for (const a of enabled) {
+      const meta = CHANNEL_META.find(m => m.channel === a.channel);
+      const minSpend = meta?.minSpendRange?.low || 0;
+      if (minSpend > 0 && a.budget < minSpend) {
+        requirements.push({
+          label: `${a.channel}: minimum spend is $${minSpend.toLocaleString()}/mo (currently $${a.budget.toLocaleString()})`,
+          met: false,
+        });
+      }
+    }
     const hasSearch = enabled.some(a => a.channel === "Search");
     const hasVideo = enabled.some(a => ["Display", "OLV", "CTV", "Netflix"].includes(a.channel));
     const hasSocial = enabled.some(a => a.channel === "Social");
