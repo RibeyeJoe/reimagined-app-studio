@@ -374,13 +374,59 @@ const GENERIC_CONQUEST: ConquestOverlay = {
 // ---------- Main export ----------
 
 function resolveVerticalKey(vertical: string): string | null {
-  const v = vertical.toLowerCase();
-  if (/qsr|quick service|restaurant|food|dining|pizza|burger|coffee|café|cafe/i.test(v)) return "qsr";
-  if (/auto|car|dealer|vehicle|motor|truck/i.test(v)) return "automotive";
-  if (/health|medical|hospital|clinic|dental|urgent care|physician|wellness/i.test(v)) return "healthcare";
-  if (/home service|plumb|hvac|roof|electrician|landscap|pest|cleaning|contractor/i.test(v)) return "home services";
+  const v = (vertical || "").toLowerCase();
+  if (!v) return null;
+  if (/health|medical|hospital|clinic|dental|urgent care|physician|wellness|pharma|care system|provider|surgery|orthopedic|cardio/i.test(v)) return "healthcare";
+  if (/qsr|quick service|restaurant|food|dining|pizza|burger|coffee|café|cafe|bakery|deli/i.test(v)) return "qsr";
+  if (/auto|car|dealer|vehicle|motor|truck|dealership/i.test(v)) return "automotive";
+  if (/home service|plumb|hvac|roof|electrician|landscap|pest|cleaning|contractor|handyman/i.test(v)) return "home services";
   if (/retail|store|shop|ecommerce|e-commerce|apparel|fashion|grocery/i.test(v)) return "retail";
   return null;
+}
+
+// Brand-aware "Custom Intent" line per vertical. Uses the actual business name
+// + detected services so the keyword theme reflects the advertiser, not a template.
+function buildCustomIntent(vertKey: string | null, brandName: string, services: string[]): string {
+  const brand = (brandName || "").trim();
+  const svc = services.filter(Boolean).slice(0, 1)[0] || "";
+  const map: Record<string, string[]> = {
+    healthcare: [
+      brand ? `${brand} Services` : "Hospital Services",
+      "Hospital Near Me",
+      "Emergency Room Near Me",
+      svc ? `${svc} Near Me` : "Doctor Near Me",
+    ],
+    qsr: [
+      brand ? `${brand} Near Me` : "Restaurants Near Me",
+      "Order Online",
+      "Drive-Thru Near Me",
+      svc ? `${svc} Delivery` : "Food Delivery",
+    ],
+    automotive: [
+      brand ? `${brand} Lease Deals` : "Lease Deals",
+      brand ? `${brand} Price` : "New Car Price",
+      "Test Drive Near Me",
+      svc ? `${svc} for Sale` : "SUV for Sale",
+    ],
+    "home services": [
+      brand ? `${brand} Near Me` : "Service Near Me",
+      svc ? `${svc} Cost` : "Repair Cost",
+      svc ? `Emergency ${svc}` : "Emergency Service",
+      "Free Estimate",
+    ],
+    retail: [
+      brand ? `Buy ${brand} Online` : "Buy Online",
+      svc ? `${svc} Deals` : "Best Deals",
+      svc ? `${svc} Near Me` : "Store Near Me",
+      "Free Shipping",
+    ],
+  };
+  const themes = (vertKey && map[vertKey]) || [
+    brand ? `${brand} Near Me` : "Service Near Me",
+    svc ? `${svc} Near Me` : "Category Near Me",
+    brand ? `${brand} Reviews` : "Top Rated",
+  ];
+  return `Custom Intent: ${themes.join(", ")}`;
 }
 
 export interface SuggestedAudiences {
@@ -417,14 +463,21 @@ export function generateAudienceSuggestions(
       .replace(/\[Service\]/g, primaryService)
       .replace(/\[Product\]/g, primaryService);
 
+  const customIntent = buildCustomIntent(vertKey, businessName, services);
+
   const result: { name: string; tier: AudienceTier }[] = [];
 
   for (const tier of ["High Intent", "Mid Intent", "Reach"] as AudienceTier[]) {
     for (const label of base[tier]) {
-      result.push({ name: replacePlaceholders(label), tier });
+      const cleaned = replacePlaceholders(label);
+      // Replace any pre-existing "Custom Intent: ..." line in High Intent with brand-aware one
+      if (tier === "High Intent" && /^Custom Intent:/i.test(cleaned)) {
+        result.push({ name: customIntent, tier });
+      } else {
+        result.push({ name: cleaned, tier });
+      }
     }
 
-    // Add conquest audiences
     if (conquestEnabled) {
       let conquest: ConquestOverlay;
       if (vertKey) {
