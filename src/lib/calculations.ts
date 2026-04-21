@@ -186,10 +186,16 @@ const DMA_ALIASES: Record<string, string> = {
 const STATE_ABBR_RE =
   /,?\s*\b(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b\.?/gi;
 
+const STATE_NAMES_RE =
+  /,\s*(?:alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia)\b/gi;
+
 function normalizeDMA(s: string): string {
   return s
     .toLowerCase()
     .replace(STATE_ABBR_RE, "")
+    .replace(STATE_NAMES_RE, "")
+    .replace(/\bdma\b/gi, "")
+    .replace(/\bmarket\b/gi, "")
     .replace(/[.()/]/g, " ")
     .replace(/[-–—]/g, " ")
     .replace(/\s+/g, " ")
