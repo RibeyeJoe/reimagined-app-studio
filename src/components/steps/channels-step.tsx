@@ -302,6 +302,9 @@ export function ChannelsStep() {
                 const showExtra = alloc.enabled && hasExtraConfig(alloc.channel);
                 const isHistorical = normalizedHistoricalChannels.includes(alloc.channel.toLowerCase());
                 const isBlocked = isConstrainedMode && !isHistorical;
+                const channelMeta = CHANNEL_META.find(m => m.channel === alloc.channel);
+                const minSpend = channelMeta?.minSpendRange?.low || 0;
+                const belowMinimum = alloc.enabled && alloc.budget > 0 && minSpend > 0 && alloc.budget < minSpend;
                 return (
                   <Card key={alloc.channel} className={cn(
                     "p-4 transition-all card-elevated",
@@ -330,6 +333,11 @@ export function ChannelsStep() {
                           <span className="text-muted-foreground">{alloc.percentage}%</span>
                           <span className="font-semibold">${alloc.budget.toLocaleString()}</span>
                         </div>
+                        {belowMinimum && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                            ⚠ Below ${minSpend.toLocaleString()} minimum
+                          </p>
+                        )}
                         <Slider
                           value={[alloc.percentage]}
                           onValueChange={([value]) => setPercentage(alloc.channel as Channel, value)}
