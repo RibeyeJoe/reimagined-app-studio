@@ -48,10 +48,27 @@ export function AudiencesStep() {
   })();
   const ethnicLabel = ethnicOverlay && ethnicOverlay !== "General Market" ? `${ethnicOverlay} ` : "";
 
+  // Client-side vertical sanity check — guards against the analyzer returning
+  // "General" or the wrong vertical (e.g. "Automotive" for a hospital site).
+  // Scans business name + URL + detected services for strong keyword signals
+  // and overrides the vertical before suggestion lookup.
+  const sanityCheckVertical = (detected: string, businessName: string, url: string, services: string[]): string => {
+    const haystack = [businessName, url, services.join(" "), detected]
+      .filter(Boolean).join(" ").toLowerCase();
+    if (/\b(hospital|health\s*system|medical\s*center|clinic|urgent\s*care|physician|dental|orthoped|cardio|oncolog|pediatric|surgery|wellness|healthcare|pharma)\b/.test(haystack)) return "Healthcare";
+    if (/\b(dealership|dealer|automotive|auto\s*group|chevrolet|toyota|honda|ford|nissan|hyundai|kia|jeep|ram|bmw|mercedes|lexus|tesla|cars?\b|vehicles?)\b/.test(haystack)) return "Automotive";
+    if (/\b(restaurant|pizza|burger|taco|coffee|cafe|bakery|deli|qsr|fast\s*food|drive[-\s]?thru|grill|kitchen|eatery|diner)\b/.test(haystack)) return "QSR";
+    if (/\b(plumb|hvac|roof|electric(ian)?|landscap|pest|cleaning|contractor|handyman|garage\s*door|remodel|home\s*service)\b/.test(haystack)) return "Home Services";
+    if (/\b(retail|store|shop|boutique|outlet|apparel|fashion|grocery|supermarket|department|ecommerce|e-commerce)\b/.test(haystack)) return "Retail";
+    return detected || "default";
+  };
+
   const suggestAudiences = () => {
-    const vertical = intake.detected?.vertical || "default";
+    const detected = intake.detected?.vertical || "";
     const services = intake.detected?.services || [];
     const businessName = intake.businessName || intake.detected?.businessName || "";
+    const url = intake.websiteUrl || "";
+    const vertical = sanityCheckVertical(detected, businessName, url, services);
     const goal = state.goals?.goal || null;
     const result = generateAudienceSuggestions(vertical, goal, businessName, audiences.conquestEnabled, services);
     updateAudiences({ audiences: result.audiences });
