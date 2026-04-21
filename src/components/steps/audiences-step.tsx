@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { AUDIENCE_TIERS, DEMO_OPTIONS, ETHNIC_OVERLAYS, type AudienceTier, type AudienceItem, type DemoOption, type EthnicOverlay } from "@/lib/schema";
+import { AUDIENCE_TIERS, AGE_RANGES, SEX_OPTIONS, ETHNIC_OVERLAYS, buildDemoLabel, parseDemoLabel, type AudienceTier, type AgeRange, type SexOption, type EthnicOverlay } from "@/lib/schema";
 import { Users, Sparkles, X, ArrowLeft, ArrowRight, Zap, TrendingUp, Megaphone, Plus, Swords, Trash2, UserCircle2 } from "lucide-react";
 import { generateAudienceSuggestions } from "@/lib/audience-suggestions";
 import { getUniverse } from "@/lib/calculations";
@@ -25,8 +25,12 @@ export function AudiencesStep() {
   const [newInput, setNewInput] = useState("");
   const [newTier, setNewTier] = useState<AudienceTier>("High Intent");
 
-  const demo = audiences.demo || "Adults 25-54";
+  const currentDemo = audiences.demo || "Adults 25-54";
+  const { age: currentAge, sex: currentSex } = parseDemoLabel(currentDemo);
   const ethnicOverlay = audiences.ethnicOverlay || "General Market";
+
+  const setAge = (age: AgeRange) => updateAudiences({ demo: buildDemoLabel(age, currentSex) });
+  const setSex = (sex: SexOption) => updateAudiences({ demo: buildDemoLabel(currentAge, sex) });
 
   // Live universe preview based on geo + demo + ethnic overlay
   const geoParam = (() => {
@@ -35,7 +39,7 @@ export function AudiencesStep() {
     const parts = v.split(";").map(s => s.trim()).filter(Boolean);
     return parts.length > 1 ? parts : (parts[0] || "National");
   })();
-  const liveUniverseK = getUniverse(geoParam, "All Adults", demo, ethnicOverlay);
+  const liveUniverseK = getUniverse(geoParam, "All Adults", currentDemo, ethnicOverlay);
   const geoLabel = !geo.geoValue ? "U.S." : (() => {
     const parts = geo.geoValue.split(";").map(s => s.trim()).filter(Boolean);
     if (parts.length <= 3) return parts.join(", ");
@@ -107,16 +111,32 @@ export function AudiencesStep() {
         </div>
 
         <div>
-          <Label className="text-xs uppercase font-semibold text-muted-foreground">Age / Sex Demo</Label>
+          <Label className="text-xs uppercase font-semibold text-muted-foreground">Age Range</Label>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {DEMO_OPTIONS.map(d => (
+            {AGE_RANGES.map(a => (
               <Badge
-                key={d}
-                variant={demo === d ? "default" : "outline"}
+                key={a}
+                variant={currentAge === a ? "default" : "outline"}
                 className="cursor-pointer text-[11px]"
-                onClick={() => updateAudiences({ demo: d as DemoOption })}
+                onClick={() => setAge(a)}
               >
-                {d}
+                {`Adults ${a}`}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-xs uppercase font-semibold text-muted-foreground">Sex</Label>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {SEX_OPTIONS.map(s => (
+              <Badge
+                key={s}
+                variant={currentSex === s ? "default" : "outline"}
+                className="cursor-pointer text-[11px]"
+                onClick={() => setSex(s)}
+              >
+                {s}
               </Badge>
             ))}
           </div>
@@ -144,7 +164,7 @@ export function AudiencesStep() {
             Universe:{" "}
             <span className="font-bold text-foreground">
               ~{liveUniverseK >= 1000 ? `${(liveUniverseK / 1000).toFixed(1)}M` : `${liveUniverseK}K`}{" "}
-              {ethnicLabel}{demo} in {geoLabel}
+              {ethnicLabel}{currentDemo} in {geoLabel}
             </span>
           </span>
         </div>
