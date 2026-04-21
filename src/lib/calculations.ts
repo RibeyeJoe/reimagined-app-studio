@@ -58,21 +58,21 @@ export const ATTENTION_WEIGHTS: Record<string, number> = {
 const RHO_BAR = 0.38;
 
 // Universe estimates by demo (000s) — Nielsen Universe Estimates 2024
+// Women ≈ 51%, Men ≈ 49% of each age band.
 export const UNIVERSE: Record<string, number> = {
-  "Adults 18-34": 72000, "Adults 18-49": 135000, "Adults 25-54": 98000,
-  "Adults 35-64": 88000, "Adults 55+": 65000, "Women 18-49": 67000, "Men 18-49": 68000,
+  "Adults 18+": 210000, "Adults 18-34": 72000, "Adults 18-49": 135000,
+  "Adults 25-54": 98000, "Adults 35-64": 88000, "Adults 55+": 65000, "Adults 65+": 42000,
+  "Women 18+": 107100, "Women 18-34": 36720, "Women 18-49": 68850,
+  "Women 25-54": 49980, "Women 35-64": 44880, "Women 55+": 33150, "Women 65+": 21420,
+  "Men 18+": 102900, "Men 18-34": 35280, "Men 18-49": 66150,
+  "Men 25-54": 48020, "Men 35-64": 43120, "Men 55+": 31850, "Men 65+": 20580,
 };
 
 // Demo population as a fraction of A25-54 (used to scale geo universe by selected demo)
-const DEMO_TO_A2554_RATIO: Record<string, number> = {
-  "Adults 18-34": 72000 / 98000,
-  "Adults 18-49": 135000 / 98000,
-  "Adults 25-54": 1.0,
-  "Adults 35-64": 88000 / 98000,
-  "Adults 55+": 65000 / 98000,
-  "Women 18-49": 67000 / 98000,
-  "Men 18-49": 68000 / 98000,
-};
+const A2554 = 98000;
+const DEMO_TO_A2554_RATIO: Record<string, number> = Object.fromEntries(
+  Object.entries(UNIVERSE).map(([k, v]) => [k, v / A2554])
+);
 
 export function demoScale(demo?: string | null): number {
   if (!demo) return 1.0;

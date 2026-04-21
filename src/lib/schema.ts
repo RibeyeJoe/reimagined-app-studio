@@ -120,11 +120,38 @@ export interface AudienceItem {
   tier: AudienceTier;
 }
 
+// Age ranges (sex-neutral). Combined with SEX_OPTIONS to form full demo string.
+export const AGE_RANGES = [
+  "18+", "18-34", "18-49", "25-54", "35-64", "55+", "65+",
+] as const;
+export type AgeRange = typeof AGE_RANGES[number];
+
+export const SEX_OPTIONS = ["All", "Women", "Men"] as const;
+export type SexOption = typeof SEX_OPTIONS[number];
+
+// Full combined demo strings (kept for backwards compat + UNIVERSE lookup keys).
 export const DEMO_OPTIONS = [
-  "Adults 18-34", "Adults 18-49", "Adults 25-54", "Adults 35-64",
-  "Adults 55+", "Women 18-49", "Men 18-49",
+  "Adults 18+", "Adults 18-34", "Adults 18-49", "Adults 25-54", "Adults 35-64",
+  "Adults 55+", "Adults 65+",
+  "Women 18+", "Women 18-34", "Women 18-49", "Women 25-54", "Women 35-64", "Women 55+", "Women 65+",
+  "Men 18+", "Men 18-34", "Men 18-49", "Men 25-54", "Men 35-64", "Men 55+", "Men 65+",
 ] as const;
 export type DemoOption = typeof DEMO_OPTIONS[number];
+
+/** Build a combined demo label from age range + sex selection. */
+export function buildDemoLabel(age: AgeRange, sex: SexOption): DemoOption {
+  const prefix = sex === "All" ? "Adults" : sex;
+  return `${prefix} ${age}` as DemoOption;
+}
+
+/** Parse a combined demo label back into (age, sex). */
+export function parseDemoLabel(demo: string): { age: AgeRange; sex: SexOption } {
+  const m = demo.match(/^(Adults|Women|Men)\s+(.+)$/);
+  if (!m) return { age: "25-54", sex: "All" };
+  const sex: SexOption = m[1] === "Adults" ? "All" : (m[1] as SexOption);
+  const age = (AGE_RANGES.includes(m[2] as AgeRange) ? m[2] : "25-54") as AgeRange;
+  return { age, sex };
+}
 
 export const ETHNIC_OVERLAYS = [
   "General Market", "Hispanic/Latino", "African American", "Asian American",
