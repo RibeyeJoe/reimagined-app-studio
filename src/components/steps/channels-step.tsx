@@ -15,6 +15,7 @@ import {
   type OOHVertical, type OOHType, type Daypart,
 } from "@/lib/schema";
 import { DEFAULT_CHANNEL_MIX, CHANNEL_META, CHANNEL_PRESETS, getChannelHint } from "@/lib/benchmarks";
+import { getUniverse } from "@/lib/calculations";
 import { expandHistoricalChannels } from "@/lib/channel-mapping";
 import {
   Sparkles, ArrowLeft, ArrowRight, Lock, Unlock, ChevronDown, ChevronUp,
@@ -40,7 +41,7 @@ const CHANNELS_WITH_OOH: Channel[] = ["DOOH", "OOH"];
 
 export function ChannelsStep() {
   const { state, updateChannels, setStep } = usePlanner();
-  const { channels, intake, goals } = state;
+  const { channels, intake, goals, geo, audiences } = state;
   const channelMixMode = goals.channelMixMode || "expand";
   const performanceChannels: string[] = (state as any).performanceChannels || [];
   const normalizedHistoricalChannels = expandHistoricalChannels(performanceChannels).map((channel) => channel.toLowerCase());
@@ -48,6 +49,18 @@ export function ChannelsStep() {
   const budget = intake.monthlyBudget || 5000;
   const hasServices = (intake.detected?.services?.length || 0) > 0;
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
+
+  // Compute universe for reach curves from geo + demo + ethnic selections
+  const geoParam = (() => {
+    const v = geo?.geoValue;
+    if (!v) return "National" as const;
+    const parts = v.split(";").map(s => s.trim()).filter(Boolean);
+    return parts.length > 1 ? parts : (parts[0] || "National");
+  })();
+  const demoParam = audiences?.demo || "Adults 25-54";
+  const ethnicParam = audiences?.ethnicOverlay && audiences.ethnicOverlay !== "General Market"
+    ? audiences.ethnicOverlay : null;
+  const universeK = getUniverse(geoParam, null, demoParam, ethnicParam);
 
   const rebalanceAllocations = (allocations: ChannelAllocation[]) => {
     const enabled = allocations.filter((allocation) => allocation.enabled);
@@ -289,6 +302,9 @@ export function ChannelsStep() {
                 const showExtra = alloc.enabled && hasExtraConfig(alloc.channel);
                 const isHistorical = normalizedHistoricalChannels.includes(alloc.channel.toLowerCase());
                 const isBlocked = isConstrainedMode && !isHistorical;
+                const channelMeta = CHANNEL_META.find(m => m.channel === alloc.channel);
+                const minSpend = channelMeta?.minSpendRange?.low || 0;
+                const belowMinimum = alloc.enabled && alloc.budget > 0 && minSpend > 0 && alloc.budget < minSpend;
                 return (
                   <Card key={alloc.channel} className={cn(
                     "p-4 transition-all card-elevated",
@@ -317,6 +333,11 @@ export function ChannelsStep() {
                           <span className="text-muted-foreground">{alloc.percentage}%</span>
                           <span className="font-semibold">${alloc.budget.toLocaleString()}</span>
                         </div>
+                        {belowMinimum && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                            ⚠ Below ${minSpend.toLocaleString()} minimum
+                          </p>
+                        )}
                         <Slider
                           value={[alloc.percentage]}
                           onValueChange={([value]) => setPercentage(alloc.channel as Channel, value)}
@@ -434,7 +455,7 @@ export function ChannelsStep() {
       {/* Reach Curves */}
       {channels.allocations.some((allocation) => allocation.enabled && allocation.budget > 0) && (
         <Card className="p-5 card-elevated">
-          <ReachCurvesChart allocations={channels.allocations} totalBudget={budget} />
+          <ReachCurvesChart allocations={channels.allocations} totalBudget={budget} universeThousands={universeK} />
         </Card>
       )}
 

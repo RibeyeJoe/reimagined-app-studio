@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { GEO_TYPES, type GeoType } from "@/lib/schema";
+import { getUnmatchedDMAs } from "@/lib/calculations";
 import { MapPin, Sparkles, ArrowLeft, ArrowRight, AlertTriangle, Building, Radio, Map, Hash, Landmark, Plus, X, Upload, FileText, Database } from "lucide-react";
 
 const GEO_ICONS: Record<GeoType, typeof Building> = {
@@ -41,6 +42,10 @@ export function GeoStep() {
   const visibleLocations = showAllLocations ? locations : locations.slice(0, VISIBLE_LIMIT);
   const hiddenCount = locations.length - VISIBLE_LIMIT;
   const isLowBudget = (geo.geoType === "DMA" && budget < 10000) || (geo.geoType === "Congressional District" && budget < 2500);
+  const unmatchedDMAs = useMemo(
+    () => geo.geoType === "DMA" ? getUnmatchedDMAs(locations.length > 0 ? locations : null) : [],
+    [geo.geoType, geo.geoValue]
+  );
 
   // Auto-populate geo from historical data
   useEffect(() => {
@@ -246,6 +251,16 @@ export function GeoStep() {
                 </Button>
               </div>
             )}
+          </div>
+        )}
+
+        {unmatchedDMAs.length > 0 && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
+            <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+              <p><strong>Unrecognized market{unmatchedDMAs.length > 1 ? "s" : ""}:</strong> {unmatchedDMAs.join(", ")}</p>
+              <p>These are using a fallback estimate of 300K. For accurate planning, use the full Nielsen DMA name (e.g., "Sacramento-Stockton" instead of "Sac").</p>
+            </div>
           </div>
         )}
 

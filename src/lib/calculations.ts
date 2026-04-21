@@ -30,7 +30,7 @@ export const REACH_PARAMS: Record<string, ReachParam> = {
   "YouTube/YouTubeTV":        { rMax: 0.70, lambda: 80  },
   "Amazon/Prime Video/Twitch":{ rMax: 0.55, lambda: 70  },
   Audio:                      { rMax: 0.65, lambda: 180 },
-  Email:                      { rMax: 0.95, lambda: null },
+  Email:                      { rMax: 0.95, lambda: 45 },
   DOOH:                       { rMax: 0.68, lambda: 85  },
   OOH:                        { rMax: 0.78, lambda: 95  },
   Netflix:                    { rMax: 0.58, lambda: 68  },
@@ -206,46 +206,69 @@ function normalizeDMA(s: string): string {
  * Resolve a user-entered DMA string to a GEO_UNIVERSE population (in 000s).
  * Order: exact key → alias → fuzzy substring (highest pop wins) → 300 fallback.
  */
-export function resolveDMA(input: string): number {
-  if (!input) return 300;
+export interface DMAResult {
+  population: number;
+  matched: boolean;
+  matchedKey: string | null;
+}
+
+export function resolveDMA(input: string): DMAResult {
+  if (!input) return { population: 300, matched: false, matchedKey: null };
+
   // Exact match
-  if (GEO_UNIVERSE[input] != null) return GEO_UNIVERSE[input];
+  if (GEO_UNIVERSE[input] != null) {
+    return { population: GEO_UNIVERSE[input], matched: true, matchedKey: input };
+  }
 
   const norm = normalizeDMA(input);
-  if (!norm) return 300;
+  if (!norm) return { population: 300, matched: false, matchedKey: null };
 
   // Alias hit (exact normalized)
   if (DMA_ALIASES[norm] && GEO_UNIVERSE[DMA_ALIASES[norm]] != null) {
-    return GEO_UNIVERSE[DMA_ALIASES[norm]];
+    return { population: GEO_UNIVERSE[DMA_ALIASES[norm]], matched: true, matchedKey: DMA_ALIASES[norm] };
   }
 
   // Substring fuzzy match against all keys; pick the highest-population match
   let bestPop = 0;
+  let bestKey: string | null = null;
   for (const [key, pop] of Object.entries(GEO_UNIVERSE)) {
     if (key === "National") continue;
     const normKey = normalizeDMA(key);
     if (normKey === norm || normKey.includes(norm) || norm.includes(normKey)) {
-      if (pop > bestPop) bestPop = pop;
+      if (pop > bestPop) { bestPop = pop; bestKey = key; }
     }
   }
-  if (bestPop > 0) return bestPop;
+  if (bestPop > 0) return { population: bestPop, matched: true, matchedKey: bestKey };
 
   // Token-overlap fallback: any alias whose key contains the input as a token
   for (const [aliasKey, canonical] of Object.entries(DMA_ALIASES)) {
     if (norm.includes(aliasKey) || aliasKey.includes(norm)) {
       const pop = GEO_UNIVERSE[canonical];
-      if (pop && pop > bestPop) bestPop = pop;
+      if (pop && pop > bestPop) { bestPop = pop; bestKey = canonical; }
     }
   }
-  return bestPop || 300;
+  if (bestPop > 0) return { population: bestPop, matched: true, matchedKey: bestKey };
+  return { population: 300, matched: false, matchedKey: null };
 }
 
-export function geoUniverse(geoSelection?: string | string[] | null): number {
-  if (!geoSelection || geoSelection === "National") return GEO_UNIVERSE["National"];
-  if (Array.isArray(geoSelection)) {
-    return geoSelection.reduce((sum, dma) => sum + resolveDMA(dma), 0);
+export function geoUniverse(geoSelection?: string | string[] | null): { total: number; unmatched: string[] } {
+  if (!geoSelection || geoSelection === "National") {
+    return { total: GEO_UNIVERSE["National"], unmatched: [] };
   }
-  return resolveDMA(geoSelection);
+  const entries = Array.isArray(geoSelection) ? geoSelection : [geoSelection];
+  let total = 0;
+  const unmatched: string[] = [];
+  for (const entry of entries) {
+    const result = resolveDMA(entry);
+    total += result.population;
+    if (!result.matched) unmatched.push(entry);
+  }
+  return { total, unmatched };
+}
+
+export function getUnmatchedDMAs(geo: string | string[] | null): string[] {
+  if (!geo) return [];
+  return geoUniverse(geo).unmatched;
 }
 
 // ─── Audience segment penetration (fraction of Adults 25-54) ─────────────────
@@ -296,7 +319,7 @@ export function getUniverse(
   demo: string = "Adults 25-54",
   ethnicOverlay: string | null = null,
 ): number {
-  const geoSize = geoUniverse(geo);
+  const geoSize = geoUniverse(geo).total;
   const dScale = demoScale(demo);
   const segFrac = audienceFraction(audience);
   const ethFrac = audienceFraction(ethnicOverlay);
@@ -307,7 +330,7 @@ export function getUniverse(
 export function channelReach(channelName: string, budget: number): number {
   const params = REACH_PARAMS[channelName];
   if (!params) return 0;
-  if (!params.lambda) return params.rMax; // Email/Print: list-based placeholder
+  if (!params.lambda) return 0; // No lambda = no reach model available
   const cpm = DEFAULT_CPMS[channelName] || 15;
   const w = budget / cpm; // media weight in k-imps
   return Math.min(params.rMax * (1 - Math.exp(-w / params.lambda)), params.rMax);

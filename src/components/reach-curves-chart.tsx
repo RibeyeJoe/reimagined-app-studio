@@ -48,7 +48,7 @@ export function ReachCurvesChart({ allocations, totalBudget, universeThousands =
       points.push(point);
     }
     return points;
-  }, [enabledChannels, totalBudget, universePersons]);
+  }, [allocations, totalBudget, universePersons]);
 
   if (enabledChannels.length === 0) return null;
 
